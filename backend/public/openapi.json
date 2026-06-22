@@ -1,0 +1,195 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "title": "BangGia Price Lookup API",
+        "description": "Tra cứu GIÁ BÁN sản phẩm Creta Shop.\nTìm kiếm theo tên, mã code, hoặc hãng.\nDùng cho Dify Agent / Chatbot.\n\n## Cách dùng trong Dify Agent\n\nGọi `GET /api/v1/agent/price-lookup?q=<từ khóa>` để search sản phẩm.\nAPI trả JSON gồm `message` (text tóm tắt tiếng Việt) và `results` (danh sách sản phẩm có giá).\nAgent đọc `message` để trả lời tự nhiên, dùng `results` để hiển thị chi tiết.\n\n## Các trường quan trọng\n\n| Field | Ý nghĩa |\n|---|---|\n| `sellPrice` | Giá bán đã format (vd: \"1.200.000đ\") hoặc null nếu chưa có |\n| `updated` | \"Hôm nay\" / \"3 ngày trước\" / null |\n| `message` | Text tóm tắt tiếng Việt, Agent có thể gửi trực tiếp |\n",
+        "version": "1.0.0",
+        "contact": {
+            "name": "BangGia Team",
+            "url": "https://banggia.besen.vn"
+        }
+    },
+    "servers": [
+        {
+            "url": "https://banggia.besen.vn",
+            "description": "Production server"
+        }
+    ],
+    "tags": [
+        {
+            "name": "price",
+            "description": "Tra cứu giá bán sản phẩm"
+        }
+    ],
+    "paths": {
+        "/api/v1/agent/price-lookup": {
+            "get": {
+                "tags": ["price"],
+                "summary": "Tìm kiếm sản phẩm và tra giá bán",
+                "description": "Tìm sản phẩm theo từ khóa (tên, mã, hãng).\nTrả về giá bán đã format sẵn.\nKHÔNG trả về giá nhập.\n\n**Cách dùng trong Dify Agent:**\n1. Nhận câu hỏi của user (vd: \"giá camera imou bao nhiêu?\")\n2. Trích xuất từ khóa (vd: \"imou camera\")\n3. Gọi API này với q=<từ khóa>\n4. Đọc `message` để có text tóm tắt\n5. Gửi text đó + liệt kê `results` cho user\n",
+                "operationId": "searchPrice",
+                "parameters": [
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "required": true,
+                        "description": "Từ khóa tìm kiếm (tên sản phẩm, mã code, hoặc hãng). Có thể gõ nhiều từ cách nhau bằng dấu cách.",
+                        "schema": { "type": "string" },
+                        "example": "camera IMOU"
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "description": "Số kết quả tối đa (1-20, mặc định 10)",
+                        "schema": { "type": "integer", "default": 10, "minimum": 1, "maximum": 20 }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Kết quả tìm kiếm",
+                        "content": {
+                            "application/json": {
+                                "schema": { "$ref": "#/components/schemas/PriceLookupResponse" },
+                                "example": {
+                                    "ok": true,
+                                    "data": {
+                                        "query": "IMOU",
+                                        "results": [
+                                            {
+                                                "code": "SP900731",
+                                                "name": "IMOU A22EP (CTKM T7)",
+                                                "brand": "",
+                                                "group": "CAMERA IP",
+                                                "sellPrice": "890.000đ",
+                                                "updated": "Hôm nay",
+                                                "priceUpdatedAt": "2026-06-05T06:41:41.333Z"
+                                            }
+                                        ],
+                                        "total": 1,
+                                        "message": "Tìm thấy 1 sản phẩm"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Thiếu tham số q",
+                        "content": {
+                            "application/json": {
+                                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                                "example": { "ok": false, "error": "Thiếu tham số q" }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent/price/{code}": {
+            "get": {
+                "tags": ["price"],
+                "summary": "Tra giá bán chi tiết 1 sản phẩm theo mã code",
+                "description": "Lấy thông tin chi tiết + giá bán của 1 sản phẩm cụ thể.\nKHÔNG trả về giá nhập.\nDùng khi user hỏi về 1 mã code cụ thể.\n",
+                "operationId": "getPriceByCode",
+                "parameters": [
+                    {
+                        "name": "code",
+                        "in": "path",
+                        "required": true,
+                        "description": "Mã sản phẩm (vd: SP900731)",
+                        "schema": { "type": "string" },
+                        "example": "SP900731"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Thông tin sản phẩm",
+                        "content": {
+                            "application/json": {
+                                "schema": { "$ref": "#/components/schemas/ProductDetail" },
+                                "example": {
+                                    "ok": true,
+                                    "data": {
+                                        "code": "SP900731",
+                                        "name": "IMOU A22EP (CTKM T7)",
+                                        "brand": "",
+                                        "group": "CAMERA IP",
+                                        "sellPrice": "890.000đ",
+                                        "updated": "Hôm nay",
+                                        "priceUpdatedAt": "2026-06-05T06:41:41.333Z",
+                                        "description": "Camera IP 2MP IMOU A22EP",
+                                        "imageUrl": ""
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Không tìm thấy",
+                        "content": {
+                            "application/json": {
+                                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                                "example": { "ok": false, "error": "Không tìm thấy sản phẩm" }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "PriceItem": {
+                "type": "object",
+                "description": "Một sản phẩm trong kết quả search",
+                "properties": {
+                    "code": { "type": "string", "description": "Mã sản phẩm", "example": "SP900731" },
+                    "name": { "type": "string", "description": "Tên sản phẩm", "example": "IMOU A22EP (CTKM T7)" },
+                    "brand": { "type": "string", "description": "Hãng sản xuất", "example": "IMOU" },
+                    "group": { "type": "string", "description": "Nhóm sản phẩm", "example": "CAMERA IP" },
+                    "sellPrice": { "type": "string", "nullable": true, "description": "Giá bán đã format (vd: '890.000đ') hoặc null", "example": "890.000đ" },
+                    "updated": { "type": "string", "nullable": true, "description": "\"Hôm nay\" / \"3 ngày trước\" / null", "example": "Hôm nay" },
+                    "priceUpdatedAt": { "type": "string", "format": "date-time", "nullable": true, "description": "Thời điểm cập nhật giá gần nhất" }
+                }
+            },
+            "PriceLookupResponse": {
+                "type": "object",
+                "description": "Response từ API search giá",
+                "properties": {
+                    "ok": { "type": "boolean", "example": true },
+                    "data": {
+                        "type": "object",
+                        "properties": {
+                            "query": { "type": "string", "description": "Từ khóa đã search" },
+                            "results": { "type": "array", "items": { "$ref": "#/components/schemas/PriceItem" } },
+                            "total": { "type": "integer", "description": "Số kết quả" },
+                            "message": { "type": "string", "description": "**QUAN TRỌNG**: Text tóm tắt tiếng Việt. Agent có thể gửi trực tiếp text này cho user." }
+                        }
+                    }
+                }
+            },
+            "ProductDetail": {
+                "type": "object",
+                "description": "Response chi tiết 1 sản phẩm",
+                "properties": {
+                    "ok": { "type": "boolean" },
+                    "data": {
+                        "type": "object",
+                        "allOf": [{ "$ref": "#/components/schemas/PriceItem" }],
+                        "properties": {
+                            "description": { "type": "string", "description": "Mô tả sản phẩm" },
+                            "imageUrl": { "type": "string", "description": "Link ảnh sản phẩm" }
+                        }
+                    }
+                }
+            },
+            "ErrorResponse": {
+                "type": "object",
+                "properties": {
+                    "ok": { "type": "boolean", "example": false },
+                    "error": { "type": "string", "example": "Không tìm thấy sản phẩm" }
+                }
+            }
+        }
+    }
+}

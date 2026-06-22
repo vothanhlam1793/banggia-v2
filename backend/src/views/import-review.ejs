@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Import Review - BangGia</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; }
+    .header { background: #1a1a2e; color: white; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 18px; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .panel { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.1); margin-bottom: 20px; overflow: hidden; }
+    .panel-header { padding: 14px 20px; background: #fafafa; border-bottom: 1px solid #eee; font-weight: 600; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+    .panel-body { padding: 20px; }
+
+    .upload-form { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .upload-form input[type=file] { padding: 8px; border: 1px solid #ddd; border-radius: 6px; }
+    .upload-form input[type=text] { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; width: 200px; }
+    .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; }
+    .btn-primary { background: #4361ee; color: white; }
+    .btn-primary:hover { background: #3a56d4; }
+    .btn-success { background: #2ecc71; color: white; }
+    .btn-success:hover { background: #27ae60; }
+    .btn-danger { background: #e74c3c; color: white; }
+    .btn-danger:hover { background: #c0392b; }
+    .btn-ghost { background: transparent; border: 1px solid #ddd; color: #666; }
+    .btn-ghost:hover { background: #f5f5f5; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+    .batch-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+    .batch-tab { padding: 6px 14px; border: 1px solid #ddd; border-radius: 20px; font-size: 13px; cursor: pointer; background: white; }
+    .batch-tab:hover { background: #f0f0f0; }
+    .batch-tab.active { background: #4361ee; color: white; border-color: #4361ee; }
+    .batch-tab .count { opacity: .7; margin-left: 4px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 10px 12px; background: #fafafa; border-bottom: 2px solid #eee; font-weight: 600; color: #555; }
+    td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+    tr:hover { background: #fafafa; }
+
+    .name-cell { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .price { font-weight: 600; color: #2ecc71; }
+    .cost { color: #999; font-size: 12px; }
+
+    .match-cell { min-width: 200px; }
+    .match-cell select { width: 100%; padding: 4px 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; }
+    .match-cell .auto-badge { display: inline-block; background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-right: 6px; }
+
+    .actions { white-space: nowrap; }
+    .actions .btn { margin-right: 4px; }
+
+    .search-row { padding: 6px 0; }
+    .search-row input { width: 100%; padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; }
+
+    .batch-actions { display: flex; gap: 8px; }
+    .toast { position: fixed; bottom: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; color: white; font-size: 14px; z-index: 1000; opacity: 0; transition: opacity .3s; }
+    .toast.show { opacity: 1; }
+    .toast.success { background: #2ecc71; }
+    .toast.error { background: #e74c3c; }
+
+    .empty { text-align: center; padding: 40px; color: #999; }
+    .stats { display: flex; gap: 16px; font-size: 13px; }
+    .stat { display: flex; align-items: center; gap: 4px; }
+    .stat-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .stat-dot.green { background: #2ecc71; }
+    .stat-dot.yellow { background: #f39c12; }
+    .stat-dot.red { background: #e74c3c; }
+    .stat-dot.blue { background: #4361ee; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Import Review — BangGia v3</h1>
+    <span style="font-size:13px;opacity:.7"><%= user ? user.email : '' %></span>
+  </div>
+
+  <div class="container">
+    <!-- Upload -->
+    <div class="panel">
+      <div class="panel-header">Upload CSV</div>
+      <div class="panel-body">
+        <form id="uploadForm" class="upload-form" enctype="multipart/form-data">
+          <input type="file" name="file" accept=".csv,.txt" required>
+          <input type="text" name="source" placeholder="Sheet name (optional)">
+          <button type="submit" class="btn btn-primary">Upload & Match</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Batches -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>Batches</span>
+        <% if (items.length > 0 && currentBatch) { %>
+        <div class="batch-actions">
+          <button class="btn btn-success btn-sm" onclick="batchApprove('<%= currentBatch %>')">Approve All</button>
+        </div>
+        <% } %>
+      </div>
+      <div class="panel-body">
+        <% if (batches.length === 0) { %>
+          <div class="empty">No import batches yet. Upload a CSV above.</div>
+        <% } else { %>
+        <div class="batch-tabs">
+          <a href="/import/review" class="batch-tab <%= !currentBatch ? 'active' : '' %>">All</a>
+          <% batches.forEach(function(b) { %>
+            <a href="/import/review?batch=<%= b._id %>" class="batch-tab <%= currentBatch === b._id ? 'active' : '' %>">
+              <%= b.sourceName || b._id.slice(0, 8) %>
+              <span class="count">(<%= b.count %>)</span>
+            </a>
+          <% }) %>
+        </div>
+
+        <% if (items.length === 0) { %>
+          <div class="empty">No pending items in this batch.</div>
+        <% } else { %>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:30px">#</th>
+              <th>Input Name</th>
+              <th>Price</th>
+              <th>Matched Product</th>
+              <th>Score</th>
+              <th style="width:160px">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% items.forEach(function(item, idx) { %>
+            <tr id="row-<%= item._id %>">
+              <td><%= idx + 1 %></td>
+              <td class="name-cell" title="<%= item.inputName %>">
+                <%= item.inputName %>
+                <% if (item.inputCode) { %><br><small style="color:#999"><%= item.inputCode %></small><% } %>
+              </td>
+              <td>
+                <div class="price"><%= item.sellPrice ? Number(item.sellPrice).toLocaleString('vi-VN') : '-' %></div>
+                <% if (item.costPrice) { %><div class="cost"><%= Number(item.costPrice).toLocaleString('vi-VN') %></div><% } %>
+              </td>
+              <td class="match-cell" id="match-<%= item._id %>">
+                <% if (item.status === 'AUTO_MATCHED') { %>
+                  <span class="auto-badge">AUTO</span>
+                <% } %>
+                <select id="sel-<%= item._id %>" onchange="onSelectChange('<%= item._id %>')">
+                  <% if (item.matchedProductCode) { %>
+                  <option value="<%= item.matchedProductCode %>" selected>
+                    <%= item.matchedProductCode %> | <%= item.matchedProductName %>
+                  </option>
+                  <% } else { %>
+                  <option value="">— Select product —</option>
+                  <% } %>
+                  <% (item.candidates || []).forEach(function(c) { %>
+                    <% if (c.code !== item.matchedProductCode) { %>
+                    <option value="<%= c.code %>">
+                      <%= c.code %> | <%= c.name %>
+                    </option>
+                    <% } %>
+                  <% }) %>
+                </select>
+                <div class="search-row">
+                  <input type="text" placeholder="Search product..."
+                    oninput="searchProduct('<%= item._id %>', this.value)"
+                    id="search-<%= item._id %>">
+                </div>
+              </td>
+              <td><%= item.matchScore ? Number(item.matchScore).toFixed(2) : '-' %></td>
+              <td class="actions">
+                <button class="btn btn-success btn-sm" onclick="approveOne('<%= item._id %>')">Approve</button>
+                <button class="btn btn-danger btn-sm" onclick="rejectOne('<%= item._id %>')">Reject</button>
+              </td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+        <% } %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const token = localStorage.getItem('token') || '';
+    const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
+
+    function showToast(msg, type) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast ' + type + ' show';
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    function updateRow(id, status) {
+      const row = document.getElementById('row-' + id);
+      if (status) {
+        row.style.opacity = '0.4';
+        setTimeout(() => row.remove(), 300);
+      }
+    }
+
+    async function approveOne(id) {
+      const sel = document.getElementById('sel-' + id);
+      if (!sel || !sel.value) return showToast('Select a product first', 'error');
+      try {
+        const res = await fetch('/api/v1/import/' + id + '/approve', {
+          method: 'POST', headers, body: JSON.stringify({ productCode: sel.value })
+        });
+        const data = await res.json();
+        if (data.ok) { showToast('Approved: ' + sel.value, 'success'); updateRow(id, true); }
+        else showToast(data.error || 'Failed', 'error');
+      } catch(e) { showToast('Error: ' + e.message, 'error'); }
+    }
+
+    async function rejectOne(id) {
+      try {
+        const res = await fetch('/api/v1/import/' + id + '/reject', { method: 'POST', headers });
+        const data = await res.json();
+        if (data.ok) { showToast('Rejected', 'success'); updateRow(id, true); }
+        else showToast(data.error || 'Failed', 'error');
+      } catch(e) { showToast('Error: ' + e.message, 'error'); }
+    }
+
+    async function batchApprove(batchId) {
+      if (!confirm('Approve all items in this batch?')) return;
+      try {
+        const res = await fetch('/api/v1/import/batch/approve', {
+          method: 'POST', headers, body: JSON.stringify({ batchId })
+        });
+        const data = await res.json();
+        if (data.ok) { showToast('Batch approved: ' + data.data.approved + '/' + data.data.total, 'success'); location.reload(); }
+        else showToast(data.error || 'Failed', 'error');
+      } catch(e) { showToast('Error: ' + e.message, 'error'); }
+    }
+
+    let searchTimers = {};
+    async function searchProduct(id, q) {
+      clearTimeout(searchTimers[id]);
+      if (!q || q.length < 2) return;
+      searchTimers[id] = setTimeout(async () => {
+        try {
+          const res = await fetch('/api/v1/import/search?q=' + encodeURIComponent(q), { headers });
+          const data = await res.json();
+          const sel = document.getElementById('sel-' + id);
+          if (!sel) return;
+          sel.innerHTML = '<option value="">— Select —</option>';
+          (data.data || []).forEach(c => {
+            sel.innerHTML += '<option value="' + c.code + '">' + c.code + ' | ' + c.name + '</option>';
+          });
+        } catch(e) {}
+      }, 300);
+    }
+
+    function onSelectChange(id) {
+      // highlight when user manually selects
+    }
+
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const fd = new FormData(form);
+      try {
+        const res = await fetch('/api/v1/import/upload', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token },
+          body: fd,
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast('Uploaded: ' + data.data.total + ' rows (' + data.data.autoMatched + ' auto, ' + data.data.pending + ' pending)', 'success');
+          setTimeout(() => location.href = '/import/review?batch=' + data.data.batchId, 500);
+        } else {
+          showToast(data.error || 'Upload failed', 'error');
+        }
+      } catch(e) { showToast('Error: ' + e.message, 'error'); }
+    });
+  </script>
+</body>
+</html>

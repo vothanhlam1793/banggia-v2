@@ -1,0 +1,45 @@
+{
+  "name": "search_products",
+  "description": "Tìm kiếm sản phẩm trong bảng giá Creta Shop. Dùng khi khách hàng hỏi về sản phẩm, giá cả, hoặc cần gợi ý sản phẩm.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "q": {
+        "type": "string",
+        "description": "Từ khóa tìm kiếm: tên sản phẩm, mã code, hoặc hãng"
+      },
+      "tag": {
+        "type": "string",
+        "description": "Lọc theo tag (ví dụ: wifi, ngoai-troi, trong-nha, dahua, hikvision, imou, ezviz, 2mp, 4mp, 5mp, 8mp, 4g)"
+      },
+      "group": {
+        "type": "string",
+        "description": "Lọc theo nhóm hàng (ví dụ: CAMERA IP, NVR, PHỤ KIỆN)"
+      },
+      "brand": {
+        "type": "string",
+        "description": "Lọc theo hãng"
+      },
+      "limit": {
+        "type": "number",
+        "description": "Số lượng kết quả tối đa (mặc định 10)"
+      }
+    },
+    "required": ["q"]
+  },
+  "api": {
+    "url": "https://banggia.besen.vn/api/v1/agent/search",
+    "method": "GET",
+    "query_params": {
+      "q": "{{q}}",
+      "tag": "{{tag}}",
+      "group": "{{group}}",
+      "brand": "{{brand}}",
+      "limit": "{{limit}}"
+    }
+  },
+  "response_description": {
+    "data": "Danh sách sản phẩm khớp với tìm kiếm, mỗi sản phẩm có: code, name, brand, group, prices (L0-L4), costPrice (giá nhập), tags, imageUrl",
+    "example": "Trả về danh sách JSON: [{code: 'SP900810', name: 'IPC-A32EP-IMOU', brand: 'IMOU', prices: {L4: 450000}, tags: ['wifi']}]"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "get_promotions",
+  "description": "Lấy danh sách sản phẩm đang khuyến mãi. Dùng khi khách hỏi 'có khuyến mãi gì không' hoặc 'sale gì không'.",
+  "parameters": {
+    "type": "object",
+    "properties": {}
+  },
+  "api": {
+    "url": "https://banggia.besen.vn/api/v1/agent/promotions",
+    "method": "GET"
+  },
+  "response_description": {
+    "data": "{ promotions: [...], message: 'Có X sản phẩm đang khuyến mãi' }",
+    "example": "{promotions: [{code: 'SP900810', name: 'IPC-A32EP-IMOU', prices: {L4: 390000}, tags: ['wifi', 'khuyen-mai']}], message: 'Có 1 sản phẩm đang khuyến mãi'}"
+  }
+}

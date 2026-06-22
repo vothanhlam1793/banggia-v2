@@ -1,0 +1,22 @@
+{
+  "name": "get_product",
+  "description": "Lấy thông tin chi tiết 1 sản phẩm theo mã code. Dùng khi khách hỏi cụ thể 1 mã hàng.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "code": {
+        "type": "string",
+        "description": "Mã sản phẩm (ví dụ: SP900810)"
+      }
+    },
+    "required": ["code"]
+  },
+  "api": {
+    "url": "https://banggia.besen.vn/api/v1/agent/product/{{code}}",
+    "method": "GET"
+  },
+  "response_description": {
+    "data": "Thông tin chi tiết: code, name, brand, group, prices (L0-L4), costPrice, status (ACTIVE/OUT_OF_STOCK/DISCONTINUED), tags, description, imageUrl",
+    "example": "{code: 'SP900810', name: 'IPC-A32EP-IMOU', brand: 'IMOU', group: 'CAMERA IP', prices: {L0: 350000, L1: 380000, L2: 410000, L3: 430000, L4: 450000}, costPrice: 365000, status: 'ACTIVE', tags: ['wifi']}"
+  }
+}

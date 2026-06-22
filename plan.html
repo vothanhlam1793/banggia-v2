@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BangGia v3 — Kế hoạch triển khai</title>
+<style>
+  :root { --bg:#0d1117; --fg:#c9d1d9; --accent:#58a6ff; --green:#3fb950; --yellow:#d29922; --red:#f85149; --border:#30363d; --card:#161b22; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--fg); font:14px/1.6 -apple-system,BlinkMacSystemFont,sans-serif; padding:40px 20px; }
+  .container { max-width:1100px; margin:0 auto; }
+  h1 { font-size:28px; color:var(--accent); border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:24px; }
+  h2 { font-size:20px; color:var(--accent); margin:32px 0 16px; }
+  h3 { font-size:16px; color:var(--fg); margin:20px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:20px; margin-bottom:20px; }
+  .flow { display:flex; align-items:center; gap:12px; flex-wrap:wrap; font-family:monospace; margin:16px 0; justify-content:center; }
+  .flow-box { background:var(--card); border:1px solid var(--accent); border-radius:6px; padding:10px 16px; white-space:pre-line; font-size:13px; text-align:center; min-width:120px; }
+  .flow-arrow { color:var(--accent); font-size:20px; font-weight:bold; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:12px; font-weight:600; }
+  .badge-green { background:#033a16; color:var(--green); }
+  .badge-yellow { background:#3e2a00; color:var(--yellow); }
+  .badge-red { background:#490202; color:var(--red); }
+  .badge-blue { background:#0d419d; color:var(--accent); }
+  table { width:100%; border-collapse:collapse; margin:12px 0; }
+  th, td { border:1px solid var(--border); padding:8px 12px; text-align:left; font-size:13px; }
+  th { background:var(--card); color:var(--accent); }
+  ul, ol { padding-left:24px; margin:8px 0; }
+  li { margin:4px 0; }
+  code { background:rgba(240,246,252,0.1); padding:2px 6px; border-radius:4px; font-size:13px; }
+  pre { background:var(--card); padding:16px; border-radius:6px; overflow-x:auto; font-size:12px; margin:12px 0; }
+  .phase { display:flex; gap:12px; align-items:flex-start; margin-bottom:24px; }
+  .phase-num { width:36px; height:36px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:16px; flex-shrink:0; }
+  .stale-red { color:var(--red); font-weight:bold; }
+  .stale-yellow { color:var(--yellow); font-weight:bold; }
+  .stale-green { color:var(--green); }
+  .arch { background:var(--bg); padding:20px; border-radius:8px; font-family:monospace; font-size:12px; line-height:1.8; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>BangGia v3 — Kế hoạch triển khai</h1>
+
+<!-- MỤC TIÊU -->
+<div class="card">
+  <h2>I. Tổng quan</h2>
+  <p><strong>Mục tiêu:</strong> Xây dựng lại toàn bộ hệ thống bảng giá trên stack hiện đại. Backend = canonical product server, lấy product code từ KiotViet. Quản lý giá trực tiếp trên Admin Dashboard. Demo cho sếp, sau đó deploy production.</p>
+
+  <h3>Kiến trúc</h3>
+  <div class="arch">
+┌─────────────────────────────────────────────────────────────────────┐
+│                         KIOTVIET (POS)                              │
+│  API: public.kiotapi.com                                           │
+│  → code, name, basePrice, categoryName, images                     │
+└────────────────────────────┬────────────────────────────────────────┘
+                             │ sync 1 lần (pull toàn bộ product)
+                             ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     BACKEND (Express + Apollo)                      │
+│  port 4000                                                         │
+│  GraphQL: /graphql                                                 │
+│                                                                     │
+│  Models:  Product (code★, name, price, costPrice, staleDays...)    │
+│           PriceLog (audit trail)                                   │
+│           User (auth)                                              │
+│                                                                     │
+│  Services: KiotViet sync, Stale price calculator                   │
+└──────────────┬───────────────────────────────┬──────────────────────┘
+               │                               │
+               ▼                               ▼
+┌──────────────────────────┐   ┌──────────────────────────────────────┐
+│  FRONTEND (Next.js)      │   │  FRONTEND-ADMIN (Next.js, same repo) │
+│  port 10200              │   │  port 10201                          │
+│                          │   │                                      │
+│  /           Tìm giá     │   │  /admin/price-check   Dashboard     │
+│  /info       Liên hệ     │   │  /admin/products      Danh sách     │
+│                          │   │  /admin/products/[code]  Chi tiết   │
+│  Không auth              │   │  /admin/mapping       Đối soát KV   │
+│                          │   │  /login               Đăng nhập     │
+│                          │   │                                      │
+│                          │   │  Auth: JWT + Middleware              │
+└──────────────────────────┘   └──────────────────────────────────────┘
+               │                               │
+               └───────────────┬───────────────┘
+                               │
+                               ▼
+                    ┌──────────────────┐
+                    │    MONGODB        │
+                    │  banggiasi-v3     │
+                    └──────────────────┘</div>
+</div>
+
+<!-- STACK -->
+<div class="card">
+  <h2>II. Tech Stack</h2>
+  <table>
+    <tr><th>Layer</th><th>Công nghệ</th><th>Ghi chú</th></tr>
+    <tr><td>Backend</td><td>Node.js 22 + Express + Apollo Server 4 + Mongoose 8</td><td>GraphQL endpoint tại /graphql</td></tr>
+    <tr><td>Frontend + Admin</td><td>Next.js 15 + React 19 + Tailwind CSS 4</td><td>Monorepo, 2 app qua route groups</td></tr>
+    <tr><td>State</td><td>Apollo Client + React Context</td><td>Không cần store phức tạp</td></tr>
+    <tr><td>Auth</td><td>JWT (jsonwebtoken) + httpOnly cookie</td><td>Tự implement, không dùng thư viện nặng</td></tr>
+    <tr><td>Database</td><td>MongoDB 4.0+ (Mongoose 8)</td><td>Tương thích cả server cũ lẫn local</td></tr>
+    <tr><td>KiotViet</td><td>KiotViet Public API</td><td>REST client trong backend</td></tr>
+    <tr><td>Deploy</td><td>Docker (3 container: backend, web, admin)</td><td>Port 4000, 10200, 10201</td></tr>
+  </table>
+</div>
+
+<!-- MODELS -->
+<div class="card">
+  <h2>III. Data Models (Mongoose)</h2>
+
+  <h3>Product</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Required</th><th>Ghi chú</th></tr>
+    <tr><td><code>code</code></td><td>String</td><td>★ UNIQUE</td><td>KiotViet product code</td></tr>
+    <tr><td><code>name</code></td><td>String</td><td>★</td><td>Tên sản phẩm</td></tr>
+    <tr><td><code>brand</code></td><td>String</td><td></td><td>Hãng</td></tr>
+    <tr><td><code>group</code></td><td>String</td><td></td><td>Nhóm (CAMERA IP, NVR...)</td></tr>
+    <tr><td><code>price</code></td><td>Number</td><td></td><td>Giá bán hiện tại</td></tr>
+    <tr><td><code>costPrice</code></td><td>Number</td><td></td><td>Giá nhập hiện tại</td></tr>
+    <tr><td><code>priceStaleDays</code></td><td>Number</td><td>default:7</td><td>Số ngày trước khi giá "cũ"</td></tr>
+    <tr><td><code>priceUpdatedAt</code></td><td>Date</td><td></td><td>Lần cuối cập nhật giá</td></tr>
+    <tr><td><code>status</code></td><td>String</td><td>default:PENDING_MAP</td><td>ACTIVE / OUT_OF_STOCK / DISCONTINUED / PENDING_MAP</td></tr>
+    <tr><td><code>description</code></td><td>String</td><td></td><td>Mô tả (nhập tay)</td></tr>
+    <tr><td><code>category</code></td><td>String</td><td></td><td>Danh mục từ KiotViet</td></tr>
+    <tr><td><code>imageUrl</code></td><td>String</td><td></td><td>URL ảnh</td></tr>
+    <tr><td><code>syncedFromKv</code></td><td>Boolean</td><td>default:false</td><td>Đã sync từ KiotViet</td></tr>
+  </table>
+
+  <h3>PriceLog</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Ghi chú</th></tr>
+    <tr><td><code>productCode</code></td><td>String (ref Product)</td><td>Sản phẩm</td></tr>
+    <tr><td><code>price</code></td><td>Number</td><td>Giá bán mới</td></tr>
+    <tr><td><code>costPrice</code></td><td>Number</td><td>Giá nhập mới</td></tr>
+    <tr><td><code>previousPrice</code></td><td>Number</td><td>Giá bán cũ</td></tr>
+    <tr><td><code>previousCostPrice</code></td><td>Number</td><td>Giá nhập cũ</td></tr>
+    <tr><td><code>updatedBy</code></td><td>String</td><td>Người cập nhật</td></tr>
+    <tr><td><code>notes</code></td><td>String</td><td>Ghi chú</td></tr>
+    <tr><td><code>createdAt</code></td><td>Date (auto)</td><td>Thời điểm</td></tr>
+  </table>
+
+  <h3>User</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Required</th><th>Ghi chú</th></tr>
+    <tr><td><code>email</code></td><td>String</td><td>★ UNIQUE</td><td>Email đăng nhập</td></tr>
+    <tr><td><code>name</code></td><td>String</td><td>★</td><td>Tên hiển thị</td></tr>
+    <tr><td><code>password</code></td><td>String (hashed)</td><td>★</td><td>bcrypt hash</td></tr>
+    <tr><td><code>isAdmin</code></td><td>Boolean</td><td>default:false</td><td>Quyền admin</td></tr>
+  </table>
+</div>
+
+<!-- GRAPHQL API -->
+<div class="card">
+  <h2>IV. GraphQL API</h2>
+
+  <h3>Queries</h3>
+  <table>
+    <tr><th>Query</th><th>Args</th><th>Return</th><th>Mô tả</th></tr>
+    <tr><td><code>products</code></td><td>search, group, brand, status, first, skip</td><td>[Product]</td><td>Danh sách sản phẩm (public)</td></tr>
+    <tr><td><code>product(code)</code></td><td>code: String!</td><td>Product</td><td>Chi tiết 1 sản phẩm</td></tr>
+    <tr><td><code>staleProducts</code></td><td>first, skip, group, status</td><td>[ProductStale]</td><td>Sản phẩm giá cũ + daysSince/isStale/isWarning</td></tr>
+    <tr><td><code>priceLogs(code)</code></td><td>code: String!</td><td>[PriceLog]</td><td>Lịch sử giá 1 sản phẩm</td></tr>
+    <tr><td><code>searchKiotViet(query)</code></td><td>query: String!</td><td>[KvProduct]</td><td>Tìm sản phẩm trong KiotViet</td></tr>
+    <tr><td><code>me</code></td><td></td><td>User</td><td>Thông tin user đang login (auth)</td></tr>
+  </table>
+
+  <h3>Mutations</h3>
+  <table>
+    <tr><th>Mutation</th><th>Args</th><th>Return</th><th>Mô tả</th></tr>
+    <tr><td><code>updatePrice(code, price, costPrice, notes)</code></td><td>code!, price, costPrice, notes</td><td>Product</td><td>Cập nhật giá + tạo PriceLog</td></tr>
+    <tr><td><code>updateProduct(code, data)</code></td><td>code!, data: ProductInput</td><td>Product</td><td>Cập nhật field khác</td></tr>
+    <tr><td><code>syncKiotVietProducts</code></td><td></td><td>SyncResult</td><td>Pull toàn bộ từ KiotViet → upsert</td></tr>
+    <tr><td><code>login(email, password)</code></td><td>email!, password!</td><td>AuthPayload</td><td>Đăng nhập, trả JWT</td></tr>
+  </table>
+</div>
+
+<!-- FRONTEND PAGES -->
+<div class="card">
+  <h2>V. Frontend Pages</h2>
+
+  <h3>App Public (port 10200) — không auth</h3>
+  <table>
+    <tr><th>Route</th><th>Page</th><th>Mô tả</th></tr>
+    <tr><td><code>/</code></td><td>Home</td><td>Tìm kiếm + bảng giá theo nhóm, real-time filter</td></tr>
+    <tr><td><code>/info</code></td><td>Info</td><td>Thông tin liên hệ (địa chỉ, số ĐT, Zalo)</td></tr>
+  </table>
+
+  <h3>App Admin (port 10201) — JWT auth</h3>
+  <table>
+    <tr><th>Route</th><th>Page</th><th>Mô tả</th></tr>
+    <tr><td><code>/login</code></td><td>Login</td><td>Form đăng nhập</td></tr>
+    <tr><td><code>/</code></td><td>PriceCheck</td><td>Dashboard giá cũ: đỏ/vàng/xanh, filter, sort</td></tr>
+    <tr><td><code>/products</code></td><td>Products</td><td>Danh sách sản phẩm, search, filter brand</td></tr>
+    <tr><td><code>/products/[code]</code></td><td>ProductDetail</td><td>Chi tiết + form cập nhật giá + lịch sử giá</td></tr>
+    <tr><td><code>/mapping</code></td><td>Mapping</td><td>Đối soát KiotViet code: suggest, accept, skip</td></tr>
+  </table>
+</div>
+
+<!-- STALE PRICE -->
+<div class="card">
+  <h2>VI. Cơ chế giá cũ</h2>
+  <table>
+    <tr><th>Trạng thái</th><th>Điều kiện</th><th>Màu</th></tr>
+    <tr><td><span class="stale-red">● Cập nhật gấp</span></td><td><code>daysSince > priceStaleDays</code></td><td class="stale-red">Đỏ</td></tr>
+    <tr><td><span class="stale-yellow">● Sắp hết hạn</span></td><td><code>daysSince > priceStaleDays × 0.7</code></td><td class="stale-yellow">Vàng</td></tr>
+    <tr><td><span class="stale-green">● OK</span></td><td><code>daysSince ≤ priceStaleDays × 0.7</code></td><td class="stale-green">Xanh</td></tr>
+  </table>
+
+  <h3>priceStaleDays mặc định theo group</h3>
+  <table>
+    <tr><th>Group</th><th>Days</th></tr>
+    <tr><td>CAMERA IP</td><td>3</td></tr>
+    <tr><td>CAM ANALOG</td><td>7</td></tr>
+    <tr><td>NVR / XVR</td><td>7</td></tr>
+    <tr><td>PHỤ KIỆN</td><td>30</td></tr>
+    <tr><td>Khác</td><td>7 (default)</td></tr>
+  </table>
+</div>
+
+<!-- PHASES -->
+<div class="card">
+  <h2>VII. Lộ trình triển khai</h2>
+
+  <div class="phase">
+    <div class="phase-num">1</div>
+    <div>
+      <h3 style="margin:0 0 8px;">Backend — Scaffold + DB Models <span class="badge badge-blue">backend</span></h3>
+      <ul>
+        <li>Khởi tạo project: Express + Apollo Server 4 + Mongoose</li>
+        <li>Mongoose models: Product, PriceLog, User</li>
+        <li>Kết nối MongoDB, seed admin user</li>
+        <li>GraphQL typeDefs + resolvers cơ bản (CRUD Product)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-num">2</div>
+    <div>
+      <h3 style="margin:0 0 8px;">Backend — Business Logic <span class="badge badge-blue">backend</span></h3>
+      <ul>
+        <li>KiotViet service: auth token, sync products, search</li>
+        <li>updatePrice mutation: cập nhật giá + tạo PriceLog</li>
+        <li>staleProducts query: tính daysSince + isStale/isWarning</li>
+        <li>Auth: JWT login, middleware bảo vệ mutation admin</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-num">3</div>
+    <div>
+      <h3 style="margin:0 0 8px;">Frontend — Public App <span class="badge badge-green">web</span></h3>
+      <ul>
+        <li>Next.js scaffold + Tailwind + Apollo Client</li>
+        <li>Trang chủ: search + bảng giá theo group (SSR/ISR)</li>
+        <li>Trang info: liên hệ</li>
+        <li>Deploy dev: port 10200</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-num">4</div>
+    <div>
+      <h3 style="margin:0 0 8px;">Frontend — Admin App <span class="badge badge-green">web</span></h3>
+      <ul>
+        <li>Login page + JWT auth flow</li>
+        <li>PriceCheck dashboard: filter, sort, màu stale</li>
+        <li>ProductDetail: form cập nhật giá + lịch sử</li>
+        <li>Mapping: search KiotViet + auto-suggest + accept</li>
+        <li>Deploy dev: port 10201</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-num">5</div>
+    <div>
+      <h3 style="margin:0 0 8px;">Docker + Demo <span class="badge badge-yellow">ops</span></h3>
+      <ul>
+        <li>Dockerfile cho backend + web + admin</li>
+        <li>docker-compose.yml: backend + mongo + 2 frontend</li>
+        <li>Demo sếp trên local</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- PROJECT STRUCTURE -->
+<div class="card">
+  <h2>VIII. Cấu trúc thư mục</h2>
+  <pre>
+banggia/
+├── plan.html                  Kế hoạch này
+├── backend/
+│   ├── package.json
+│   ├── src/
+│   │   ├── index.js           Express + Apollo entry
+│   │   ├── models/
+│   │   │   ├── Product.js
+│   │   │   ├── PriceLog.js
+│   │   │   └── User.js
+│   │   ├── graphql/
+│   │   │   ├── typeDefs.js
+│   │   │   └── resolvers/
+│   │   │       ├── product.js
+│   │   │       ├── price.js
+│   │   │       ├── kiotviet.js
+│   │   │       └── auth.js
+│   │   ├── services/
+│   │   │   └── kiotviet.js    KiotViet API client
+│   │   └── middleware/
+│   │       └── auth.js        JWT verify
+│   ├── .env
+│   └── Dockerfile
+├── web/                       Frontend public (Next.js)
+│   ├── package.json
+│   ├── next.config.ts
+│   ├── tailwind.config.ts
+│   ├── app/
+│   │   ├── layout.tsx
+│   │   ├── page.tsx           Home — tìm giá
+│   │   └── info/
+│   │       └── page.tsx       Liên hệ
+│   ├── components/
+│   │   ├── SearchBar.tsx
+│   │   └── PriceTable.tsx
+│   └── lib/
+│       ├── apollo.ts
+│       └── graphql.ts
+├── admin/                     Frontend admin (Next.js)
+│   ├── package.json
+│   ├── next.config.ts
+│   ├── tailwind.config.ts
+│   ├── app/
+│   │   ├── layout.tsx
+│   │   ├── page.tsx           PriceCheck Dashboard
+│   │   ├── login/
+│   │   │   └── page.tsx
+│   │   ├── products/
+│   │   │   ├── page.tsx       Danh sách
+│   │   │   └── [code]/
+│   │   │       └── page.tsx   Chi tiết
+│   │   └── mapping/
+│   │       └── page.tsx       Đối soát KV
+│   ├── components/
+│   │   ├── Layout.tsx
+│   │   ├── PriceUpdateForm.tsx
+│   │   └── ProductCard.tsx
+│   └── lib/
+│       ├── apollo.ts
+│       ├── auth.ts
+│       └── graphql.ts
+└── docker-compose.yml</pre>
+</div>
+
+<!-- ENV -->
+<div class="card">
+  <h2>IX. Environment Variables</h2>
+
+  <h3>Backend (.env)</h3>
+  <pre>
+MONGODB_URI=mongodb://localhost:27017/banggiasi-v3
+JWT_SECRET=your-jwt-secret-here
+KIOTVIET_CLIENT_ID=
+KIOTVIET_CLIENT_SECRET=
+KIOTVIET_RETAILER=cretasolu
+PORT=4000</pre>
+
+  <h3>Web / Admin (.env.local)</h3>
+  <pre>
+NEXT_PUBLIC_GRAPHQL_URL=http://localhost:4000/graphql
+# Admin only:
+NEXT_PUBLIC_ADMIN_MODE=true</pre>
+</div>
+
+<!-- REPOS -->
+<div class="card">
+  <h2>X. Repository</h2>
+  <table>
+    <tr><th>Repo</th><th>URL</th></tr>
+    <tr><td>BangGia v3</td><td><code>github.com/vothanhlam1793/banggiasi</code></td></tr>
+    <tr><td>Branch</td><td><code>v3</code> (mới, từ main tách ra)</td></tr>
+    <tr><td>KiotViet MCP</td><td><code>/home/leco/kiot</code> (tham chiếu)</td></tr>
+  </table>
+</div>
+
+</div>
+</body>
+</html>

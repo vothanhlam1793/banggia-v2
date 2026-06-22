@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+}
+
+@import "@mantine/core/styles.layer.css";
+@import "@mantine/notifications/styles.layer.css";
