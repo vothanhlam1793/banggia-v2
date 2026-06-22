@@ -177,7 +177,7 @@ export default function HomePage() {
   }
 
   return (
-    <Container fluid px="lg" py="md">
+    <Container fluid px={{ base: 'sm', sm: 'lg' }} py="md">
       {/* Header */}
       <Group mb="lg" pb="sm" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
         <Anchor component={Link} href="/" c="blue" fw={500}>Bảng giá</Anchor>
@@ -253,7 +253,7 @@ export default function HomePage() {
       )}
 
       {/* Product groups */}
-      {!loading && groups.map(([group, items]) => (
+          {!loading && groups.map(([group, items]) => (
         <div key={group} style={{ marginBottom: '2rem' }}>
           <Group mb="sm">
             <Title order={3}>{group}</Title>
@@ -261,6 +261,7 @@ export default function HomePage() {
           </Group>
 
           <Card withBorder shadow="sm" padding={0}>
+            <div style={{ overflowX: 'auto' }}>
             <Table verticalSpacing="sm" highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
@@ -327,6 +328,7 @@ export default function HomePage() {
                 ))}
               </Table.Tbody>
             </Table>
+            </div>
           </Card>
         </div>
       ))}
@@ -409,7 +411,7 @@ export default function HomePage() {
 
             {/* Meta info */}
             <Card withBorder>
-              <SimpleGrid cols={2} spacing="sm">
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
                 <div>
                   <Text size="xs" c="dimmed">Mã sản phẩm</Text>
                   <Text ff="monospace" fw={500}>{selectedProduct.code}</Text>
@@ -433,7 +435,7 @@ export default function HomePage() {
             {selectedProduct.prices && Object.keys(selectedProduct.prices).length > 0 && (
               <Card withBorder>
                 <Text fw={600} mb="sm">Bảng giá</Text>
-                <SimpleGrid cols={2} spacing="sm">
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
                   {Object.entries(selectedProduct.prices).map(([level, price]) => (
                     <Group key={level} justify="space-between">
                       <Text size="sm" c="dimmed">
