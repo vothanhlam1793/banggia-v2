@@ -5,10 +5,10 @@ import Link from 'next/link';
 import { apiRequest } from '@/lib/api';
 import {
   TextInput, Badge, Table, Text, Group, Title, Card, Anchor, Modal, Stack, Image, Divider,
-  SimpleGrid, Container,
+  SimpleGrid, Container, Button,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconSearch, IconPackage } from '@tabler/icons-react';
+import { IconSearch, IconPackage, IconCopy, IconCheck } from '@tabler/icons-react';
 
 function fmt(n: number | null | undefined) {
   if (n == null) return '0đ';
@@ -79,6 +79,7 @@ export default function HomePage() {
   const [activeTag, setActiveTag] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
+  const [copied, setCopied] = useState(false);
 
   const PAGE_SIZE = 200;
 
@@ -164,6 +165,15 @@ export default function HomePage() {
   function handleProductClick(p: any) {
     setSelectedProduct(p);
     openModal();
+  }
+
+  function handleCopy() {
+    if (!selectedProduct?.code) return;
+    const url = `https://banggia.besen.vn/${selectedProduct.code}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
   }
 
   return (
@@ -476,6 +486,18 @@ export default function HomePage() {
                 ))}
               </Group>
             )}
+
+            {/* Copy link */}
+            <Button
+              variant="light"
+              color={copied ? 'green' : 'gray'}
+              size="sm"
+              leftSection={copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+              onClick={handleCopy}
+              fullWidth
+            >
+              {copied ? 'Đã copy link' : 'Sao chép link sản phẩm'}
+            </Button>
           </Stack>
         )}
       </Modal>
