@@ -157,7 +157,70 @@ async function handleUpload(req, res, importType) {
   }
 }
 
-// GET /search?q=
+// POST /bulk — import bằng JSON payload (cho agent)
+router.post('/bulk', requireEditor, async (req, res) => {
+  try {
+    const { sourceName, type, items } = req.body;
+    if (!sourceName) return error(res, 'sourceName is required', 400);
+    if (!type || !['sell', 'cost'].includes(type)) return error(res, 'type must be "sell" or "cost"', 400);
+    if (!items || !Array.isArray(items) || items.length === 0) return error(res, 'items array is required', 400);
+
+    const batchId = generateUUID();
+    const results = [];
+
+    for (const item of items) {
+      const inputCode = (item.code || '').trim();
+      const inputName = (item.name || item.code || '').trim();
+      const price = parseFloat(item.price || 0) || 0;
+
+      if (!inputCode && !inputName) continue;
+
+      const entry = {
+        batchId,
+        sourceName,
+        inputCode,
+        inputName,
+        sellPrice: type === 'sell' ? price : 0,
+        costPrice: type === 'cost' ? price : 0,
+        type,
+        candidates: [],
+        status: 'PENDING',
+      };
+
+      if (inputCode && looksLikeCode(inputCode)) {
+        const product = await findByCode(inputCode);
+        if (product) {
+          entry.matchedProductCode = product.code;
+          entry.matchedProductName = product.name;
+          entry.matchScore = 1;
+          entry.status = 'AUTO_MATCHED';
+        }
+      }
+
+      if (entry.status !== 'AUTO_MATCHED' && inputName) {
+        entry.candidates = await matchProduct(inputName, 10);
+        if (entry.candidates.length > 0) {
+          entry.matchedProductCode = entry.candidates[0].code;
+          entry.matchedProductName = entry.candidates[0].name;
+          entry.matchScore = entry.candidates[0].score;
+        }
+      }
+
+      const doc = await PriceImport.create(entry);
+      results.push(doc.toObject());
+    }
+
+    ok(res, {
+      batchId,
+      sourceName,
+      total: results.length,
+      autoMatched: results.filter(r => r.status === 'AUTO_MATCHED').length,
+      pending: results.filter(r => r.status === 'PENDING').length,
+    });
+  } catch (e) {
+    error(res, e.message);
+  }
+});
 router.get('/search', requireAuth, async (req, res) => {
   try {
     const q = req.query.q || '';
