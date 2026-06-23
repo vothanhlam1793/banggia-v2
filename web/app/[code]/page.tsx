@@ -172,9 +172,17 @@ export default function ProductDetailPage() {
             <Stack gap="md">
               <Card withBorder>
                 <Text size="sm" c="dimmed" mb={4}>Giá bán</Text>
-                <Text fw={700} size="xl" c="blue">
-                  {fmt(product.prices?.['L4'] || product.prices?.['L3'] || product.prices?.['L2'] || product.prices?.['L1'] || product.prices?.['L0'] || 0)}
-                </Text>
+                {(() => {
+                  const price = product.prices;
+                  if (price?.['L4']) return <Text fw={700} size="xl" c="blue">{fmt(price['L4'])}</Text>;
+                  if (price?.['L5']) return (
+                    <Group gap="xs">
+                      <Badge variant="light" color="orange" size="sm">Tham khảo</Badge>
+                      <Text fw={700} size="xl" c="orange">{fmt(price['L5'])}</Text>
+                    </Group>
+                  );
+                  return <Text fw={500} size="lg" c="dimmed">Liên hệ</Text>;
+                })()}
               </Card>
 
               <Card withBorder>

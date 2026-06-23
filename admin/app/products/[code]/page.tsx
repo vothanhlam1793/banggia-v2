@@ -44,8 +44,9 @@ const PRICE_LABELS: Record<string, string> = {
   L2: 'L2 (Sỉ nhỏ)',
   L3: 'L3 (Bán buôn)',
   L4: 'L4 (Bán lẻ)',
+  L5: 'L5 (Tham khảo)',
 };
-const PRICE_LEVELS = ['L0', 'L1', 'L2', 'L3', 'L4'];
+const PRICE_LEVELS = ['L0', 'L1', 'L2', 'L3', 'L4', 'L5'];
 
 export default function ProductDetailPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params);

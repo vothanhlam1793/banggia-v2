@@ -198,7 +198,12 @@ export default function ProductsPage() {
                     <Table.Td>{p.name}</Table.Td>
                     <Table.Td fz="xs">{p.brand}</Table.Td>
                     <Table.Td fz="xs">{p.group}</Table.Td>
-                    <Table.Td ta="right" fw={500}>{fmt(p.prices?.['L4'] || p.prices?.['L3'] || p.prices?.['L2'] || p.prices?.['L1'] || p.prices?.['L0'] || 0)}</Table.Td>
+                    <Table.Td ta="right" fw={500}>{(() => {
+                      const pr = (p as any).prices;
+                      if (pr?.['L4']) return fmt(pr['L4']);
+                      if (pr?.['L5']) return fmt(pr['L5']);
+                      return 'Liên hệ';
+                    })()}</Table.Td>
                     <Table.Td ta="center" fz="xs">{STATUS_LABELS[p.status] || p.status}</Table.Td>
                     <Table.Td>
                       <Link href={`/products/${p.code}`} style={{ color: '#228be6', fontSize: '12px', textDecoration: 'none' }}>

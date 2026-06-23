@@ -16,7 +16,14 @@ function fmt(n: number | null | undefined) {
 }
 
 const PRICE_LABELS: Record<string, string> = {
-  L0: 'Sỉ lớn', L1: 'Sỉ vừa', L2: 'Sỉ nhỏ', L3: 'Bán buôn', L4: 'Bán lẻ',
+  L0: 'Sỉ lớn', L1: 'Sỉ vừa', L2: 'Sỉ nhỏ', L3: 'Bán buôn', L4: 'Bán lẻ', L5: 'Tham khảo',
+};
+
+const displayPrice = (prices: any) => {
+  if (!prices) return { label: '', value: 'Liên hệ', color: 'dimmed' as const };
+  if (prices['L4']) return { label: '', value: fmt(prices['L4']), color: 'blue' as const };
+  if (prices['L5']) return { label: 'Tham khảo', value: fmt(prices['L5']), color: 'orange' as const };
+  return { label: '', value: 'Liên hệ', color: 'dimmed' as const };
 };
 
 const SPEC_FIELDS: { key: string; label: string; render: (v: any) => string }[] = [
@@ -156,11 +163,6 @@ export default function HomePage() {
     }
     return [...map.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
   }, [filtered]);
-
-  const displayPrice = (prices: any) => {
-    if (!prices) return '0đ';
-    return fmt(prices['L4'] || prices['L3'] || prices['L2'] || prices['L1'] || prices['L0'] || 0);
-  };
 
   function handleProductClick(p: any) {
     setSelectedProduct(p);
@@ -325,7 +327,13 @@ export default function HomePage() {
                       )}
                     </Table.Td>
                     <Table.Td ta="right">
-                      <Text fw={600} size="sm" c="blue">{displayPrice(p.prices)}</Text>
+                      {(() => {
+                        const dp = displayPrice(p.prices);
+                        return <Group gap={4} justify="flex-end" wrap="nowrap">
+                          {dp.label && <Badge variant="light" color={dp.color} size="xs">{dp.label}</Badge>}
+                          <Text fw={600} size="sm" c={dp.color}>{dp.value}</Text>
+                        </Group>;
+                      })()}
                     </Table.Td>
                   </Table.Tr>
                 ))}
