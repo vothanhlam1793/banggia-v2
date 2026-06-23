@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import Link from 'next/link';
 import { apiRequest } from '@/lib/api';
 import {
@@ -77,6 +77,61 @@ function renderStructuredSpecs(specs: Record<string, any>) {
     </Card>
   );
 }
+
+const ProductRow = memo(({ p, onSelect }: { p: any; onSelect: (p: any) => void }) => {
+  const dp = displayPrice(p.prices);
+  return (
+    <Table.Tr onClick={() => onSelect(p)} style={{ cursor: 'pointer' }}>
+      <Table.Td>
+        {p.imageUrl ? (
+          <img src={p.imageUrl} alt={p.name || ''} width={48} height={48} loading="lazy"
+            style={{ borderRadius: 'var(--mantine-radius-sm)', objectFit: 'cover', display: 'block' }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        ) : null}
+        {!p.imageUrl && (
+          <div style={{
+            width: 48, height: 48, borderRadius: 'var(--mantine-radius-sm)',
+            background: 'var(--mantine-color-gray-1)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <IconPackage size={24} color="var(--mantine-color-gray-5)" />
+          </div>
+        )}
+      </Table.Td>
+      <Table.Td>
+        <Text fw={500}>{p.name}</Text>
+        <Group gap="xs" mt={4}>
+          {p.brand && <Text size="xs" c="dimmed">{p.brand}</Text>}
+          {p.code && <Text size="xs" c="dimmed" ff="monospace">({p.code})</Text>}
+        </Group>
+        {(p.tags || []).length > 0 && (
+          <Group gap={4} mt={4}>
+            {p.tags.map((t: string) => (
+              <Badge key={t} variant="light" color={t === 'khuyen-mai' ? 'red' : 'gray'} size="xs">{t}</Badge>
+            ))}
+          </Group>
+        )}
+        {p.campaigns && p.campaigns.length > 0 && (
+          <Group gap={4} mt={4}>
+            {p.campaigns.map((c: any) => (
+              <Badge key={c._id || c.name} variant="light" color="orange" size="xs">
+                {c.name}
+              </Badge>
+            ))}
+          </Group>
+        )}
+      </Table.Td>
+      <Table.Td ta="right">
+        <Group gap={4} justify="flex-end" wrap="nowrap">
+          {dp.label && <Badge variant="light" color={dp.color} size="xs">{dp.label}</Badge>}
+          <Text fw={600} size="sm" c={dp.color}>{dp.value}</Text>
+        </Group>
+      </Table.Td>
+    </Table.Tr>
+  );
+});
+ProductRow.displayName = 'ProductRow';
 
 export default function HomePage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -164,10 +219,10 @@ export default function HomePage() {
     return [...map.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
   }, [filtered]);
 
-  function handleProductClick(p: any) {
+  const handleProductClick = useCallback((p: any) => {
     setSelectedProduct(p);
     openModal();
-  }
+  }, [openModal]);
 
   function handleCopy() {
     if (!selectedProduct?.code) return;
@@ -177,6 +232,8 @@ export default function HomePage() {
       setTimeout(() => setCopied(false), 2000);
     }).catch(() => {});
   }
+
+  const searchActive = search.trim().length > 0;
 
   return (
     <Container fluid px={{ base: 'sm', sm: 'lg' }} py="md">
@@ -257,8 +314,42 @@ export default function HomePage() {
         </Card>
       )}
 
+      {/* Search results — always on top when searching */}
+      {!loading && searchActive && filtered.length > 0 && (
+        <div style={{ marginBottom: '2rem' }}>
+          <Group mb="sm">
+            <Title order={3}>Kết quả: {filtered.length} sản phẩm</Title>
+          </Group>
+          <Card withBorder shadow="sm" padding={0}>
+            <div style={{ overflowX: 'auto' }}>
+            <Table verticalSpacing="sm" highlightOnHover>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th w={60}></Table.Th>
+                  <Table.Th>Tên sản phẩm</Table.Th>
+                  <Table.Th ta="right" w={150}>Giá</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {filtered.slice(0, 200).map((p: any) => (
+                  <ProductRow key={p._id || p.id} p={p} onSelect={handleProductClick} />
+                ))}
+                {filtered.length > 200 && (
+                  <Table.Tr>
+                    <Table.Td colSpan={3}>
+                      <Text size="sm" c="dimmed" ta="center">+ {filtered.length - 200} kết quả khác trong các nhóm bên dưới</Text>
+                    </Table.Td>
+                  </Table.Tr>
+                )}
+              </Table.Tbody>
+            </Table>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* Product groups */}
-          {!loading && groups.map(([group, items]) => (
+      {!loading && groups.map(([group, items]) => (
         <div key={group} style={{ marginBottom: '2rem' }}>
           <Group mb="sm">
             <Title order={3}>{group}</Title>
@@ -277,65 +368,7 @@ export default function HomePage() {
               </Table.Thead>
               <Table.Tbody>
                 {items.map((p: any) => (
-                  <Table.Tr
-                    key={p._id || p.id}
-                    onClick={() => handleProductClick(p)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <Table.Td>
-                      {p.imageUrl ? (
-                        <Image
-                          src={p.imageUrl}
-                          alt={p.name}
-                          w={48}
-                          h={48}
-                          radius="sm"
-                          fit="cover"
-                          fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Crect fill='%23f1f3f5' width='48' height='48'/%3E%3Ctext x='24' y='30' text-anchor='middle' fill='%23adb5bd' font-size='20'%3E📦%3C/text%3E%3C/svg%3E"
-                        />
-                      ) : (
-                        <div style={{
-                          width: 48, height: 48, borderRadius: 'var(--mantine-radius-sm)',
-                          background: 'var(--mantine-color-gray-1)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          <IconPackage size={24} color="var(--mantine-color-gray-5)" />
-                        </div>
-                      )}
-                    </Table.Td>
-                    <Table.Td>
-                      <Text fw={500}>{p.name}</Text>
-                      <Group gap="xs" mt={4}>
-                        {p.brand && <Text size="xs" c="dimmed">{p.brand}</Text>}
-                        {p.code && <Text size="xs" c="dimmed" ff="monospace">({p.code})</Text>}
-                      </Group>
-                      {(p.tags || []).length > 0 && (
-                        <Group gap={4} mt={4}>
-                          {p.tags.map((t: string) => (
-                            <Badge key={t} variant="light" color={t === 'khuyen-mai' ? 'red' : 'gray'} size="xs">{t}</Badge>
-                          ))}
-                        </Group>
-                      )}
-                      {p.campaigns && p.campaigns.length > 0 && (
-                        <Group gap={4} mt={4}>
-                          {p.campaigns.map((c: any) => (
-                            <Badge key={c._id || c.name} variant="light" color="orange" size="xs">
-                              {c.name}
-                            </Badge>
-                          ))}
-                        </Group>
-                      )}
-                    </Table.Td>
-                    <Table.Td ta="right">
-                      {(() => {
-                        const dp = displayPrice(p.prices);
-                        return <Group gap={4} justify="flex-end" wrap="nowrap">
-                          {dp.label && <Badge variant="light" color={dp.color} size="xs">{dp.label}</Badge>}
-                          <Text fw={600} size="sm" c={dp.color}>{dp.value}</Text>
-                        </Group>;
-                      })()}
-                    </Table.Td>
-                  </Table.Tr>
+                  <ProductRow key={p._id || p.id} p={p} onSelect={handleProductClick} />
                 ))}
               </Table.Tbody>
             </Table>
@@ -404,7 +437,6 @@ export default function HomePage() {
                           onClick={() => {
                             const main = document.getElementById('main-gallery-img') as HTMLImageElement;
                             if (main) main.src = url;
-                            // highlight selected
                             const thumbs = document.querySelectorAll('[data-gallery-thumb]');
                             thumbs.forEach((t, i) => {
                               (t as HTMLElement).style.border = i === idx ? '2px solid var(--mantine-color-blue-5)' : '2px solid transparent';
