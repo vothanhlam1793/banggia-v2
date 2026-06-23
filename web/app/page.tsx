@@ -1,22 +1,14 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo, useRef } from 'react';
 import Link from 'next/link';
 import { apiRequest } from '@/lib/api';
 import {
-  TextInput, Badge, Table, Text, Group, Title, Card, Anchor, Modal, Stack, Image, Divider,
-  SimpleGrid, Container, Button,
+  TextInput, Badge, Table, Text, Group, Title, Card, Anchor, Container,
 } from '@mantine/core';
-import { IconSearch, IconPackage, IconCopy, IconCheck } from '@tabler/icons-react';
-
-function fmt(n: number | null | undefined) {
-  if (n == null) return '0đ';
-  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') + 'đ';
-}
-
-const PRICE_LABELS: Record<string, string> = {
-  L0: 'Sỉ lớn', L1: 'Sỉ vừa', L2: 'Sỉ nhỏ', L3: 'Bán buôn', L4: 'Bán lẻ', L5: 'Tham khảo',
-};
+import { IconSearch, IconPackage } from '@tabler/icons-react';
+import { fmt } from './lib';
+import { openModal } from './ProductModal';
 
 const displayPrice = (prices: any) => {
   if (!prices) return { label: '', value: 'Liên hệ', color: 'dimmed' as const };
@@ -24,58 +16,6 @@ const displayPrice = (prices: any) => {
   if (prices['L5']) return { label: 'Tham khảo', value: fmt(prices['L5']), color: 'orange' as const };
   return { label: '', value: 'Liên hệ', color: 'dimmed' as const };
 };
-
-const SPEC_FIELDS: { key: string; label: string; render: (v: any) => string }[] = [
-  { key: 'resolution', label: 'Độ phân giải', render: (v: any) => `${v.value} ${v.unit || 'MP'}` },
-  { key: 'lens', label: 'Ống kính', render: (v: any) => `${v.focal}${v.unit || 'mm'}` },
-  { key: 'ir_range', label: 'Tầm xa hồng ngoại', render: (v: any) => `${v.value}${v.unit || 'm'}` },
-  { key: 'protection', label: 'Chuẩn chống nước', render: (v: any) => v },
-  { key: 'hdr', label: 'Chống ngược sáng', render: () => 'WDR' },
-  { key: 'sensor', label: 'Cảm biến', render: (v: any) => v },
-  { key: 'compression', label: 'Chuẩn nén', render: (v: any) => Array.isArray(v) ? v.join(', ') : v },
-  { key: 'storage', label: 'Lưu trữ', render: (v: any) => Array.isArray(v) ? v.map((s: any) => `Micro SD ${s.max}${s.unit}`).join(', ') : '' },
-  { key: 'audio', label: 'Âm thanh', render: (v: any) => v === '2way' ? 'Đàm thoại 2 chiều' : 'Tích hợp mic' },
-  { key: 'ai_features', label: 'Tính năng AI', render: (v: any) => {
-    const labels: Record<string, string> = {
-      face_detect: 'Nhận diện khuôn mặt', human_detect: 'Phát hiện con người',
-      motion_detect: 'Phát hiện chuyển động', sound_detect: 'Phát hiện âm thanh',
-      smart_tracking: 'Theo dõi đối tượng', ivs: 'Hàng rào ảo / IVS',
-    };
-    return Array.isArray(v) ? v.map((f: string) => labels[f] || f).join(', ') : '';
-  }},
-  { key: 'power', label: 'Nguồn', render: (v: any) => v },
-  { key: 'poe', label: 'PoE', render: () => 'Có' },
-  { key: 'power_consumption', label: 'Công suất', render: (v: any) => `${v.value}${v.unit || 'W'}` },
-  { key: 'wifi', label: 'WiFi', render: (v: any) => 'Có' },
-  { key: 'ports', label: 'Cổng', render: (v: any) => `${v.total || v} cổng` },
-  { key: 'dimensions', label: 'Kích thước', render: (v: any) => `${v.w}×${v.h}×${v.d} ${v.unit || 'mm'}` },
-  { key: 'weight', label: 'Trọng lượng', render: (v: any) => `${v.value}${v.unit}` },
-  { key: 'operating_temp', label: 'Nhiệt độ hoạt động', render: (v: any) => `${v.min}°C ~ ${v.max}°C` },
-];
-
-function renderStructuredSpecs(specs: Record<string, any>) {
-  if (!specs) return null;
-  const rows = SPEC_FIELDS.filter(f => specs[f.key] != null && specs[f.key] !== '');
-  if (rows.length === 0) return null;
-  return (
-    <Card withBorder>
-      <Text fw={600} mb="sm">Thông số kỹ thuật</Text>
-      <Group gap={8} wrap="wrap">
-        {rows.map(f => (
-          <div key={f.key} style={{
-            display: 'inline-flex', alignItems: 'center', gap: '6px',
-            background: 'var(--mantine-color-gray-0)', borderRadius: '6px',
-            padding: '6px 12px', border: '1px solid var(--mantine-color-gray-3)',
-            fontSize: '13px',
-          }}>
-            <Text span size="xs" c="dimmed" fw={500}>{f.label}</Text>
-            <Text span size="sm" fw={600}>{f.render(specs[f.key])}</Text>
-          </div>
-        ))}
-      </Group>
-    </Card>
-  );
-}
 
 const ProductRow = memo(({ p, onSelect }: { p: any; onSelect: (p: any) => void }) => {
   const dp = displayPrice(p.prices);
@@ -132,223 +72,48 @@ const ProductRow = memo(({ p, onSelect }: { p: any; onSelect: (p: any) => void }
 });
 ProductRow.displayName = 'ProductRow';
 
-// --- Module-level modal store — avoids HomePage re-render ---
-let _modalProduct: any = null;
-let _modalOpen = false;
-let _modalListeners: (() => void)[] = [];
-
-function showLoadingSpinner() {
-  let el = document.getElementById('__modal_spinner');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = '__modal_spinner';
-    el.innerHTML = `<div style="position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25)"><div style="width:36px;height:36px;border:3px solid #dde4ef;border-top-color:#3366ff;border-radius:50%;animation:__mspin .6s linear infinite"></div></div>`;
-    document.body.appendChild(el);
-    const s = document.createElement('style');
-    s.textContent = '@keyframes __mspin{to{transform:rotate(360deg)}}';
-    document.head.appendChild(s);
-  } else {
-    el.style.display = 'flex';
-  }
-}
-
-function openModal(p: any) {
-  _modalProduct = p;
-  _modalOpen = true;
-  showLoadingSpinner();
-  _modalListeners.forEach(f => f());
-}
-
-function closeModal() {
-  _modalOpen = false;
-  _modalListeners.forEach(f => f());
-}
-
-function ProductDetailModal() {
-  const [, tick] = useState(0);
-  const [copied, setCopied] = useState(false);
+function LazyGroup({ group, items, onSelect }: { group: string; items: any[]; onSelect: (p: any) => void }) {
+  const [visible, setVisible] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const fn = () => tick(x => x + 1);
-    _modalListeners.push(fn);
-    return () => { _modalListeners = _modalListeners.filter(f => f !== fn); };
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setVisible(true); },
+      { rootMargin: '400px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (_modalOpen) {
-      const el = document.getElementById('__modal_spinner');
-      if (el) el.style.display = 'none';
-    }
-  });
-
-  const product = _modalProduct;
-
-  function handleCopy() {
-    if (!product?.code) return;
-    const url = `https://banggia.besen.vn/${product.code}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {});
-  }
-
   return (
-    <Modal opened={_modalOpen} onClose={closeModal} title={product?.name} size="lg" centered>
-      {product && (
-        <Stack gap="md">
-          {/* Gallery */}
-          {(() => {
-            const allImages = (product.images && product.images.length > 0)
-              ? product.images
-              : product.imageUrl ? [product.imageUrl] : [];
-
-            if (allImages.length === 0) {
-              return (
-                <div style={{
-                  height: 200, borderRadius: 'var(--mantine-radius-md)',
-                  background: 'var(--mantine-color-gray-1)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <IconPackage size={64} color="var(--mantine-color-gray-5)" />
-                </div>
-              );
-            }
-
-            return (
-              <Stack gap="sm">
-                <Image
-                  src={allImages[0]}
-                  alt={product.name}
-                  height={250}
-                  fit="contain"
-                  radius="md"
-                  fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='250' viewBox='0 0 400 250'%3E%3Crect fill='%23f1f3f5' width='400' height='250'/%3E%3Ctext x='200' y='135' text-anchor='middle' fill='%23adb5bd' font-size='48'%3E📦%3C/text%3E%3C/svg%3E"
-                  id="main-gallery-img"
-                />
-                {allImages.length > 1 && (
-                  <Group gap="xs" style={{ overflowX: 'auto', flexWrap: 'nowrap' }}>
-                    {allImages.map((url: string, idx: number) => (
-                      <Image
-                        key={idx}
-                        src={url}
-                        alt={`${product.name} ${idx + 1}`}
-                        w={60}
-                        h={60}
-                        radius="sm"
-                        fit="cover"
-                        style={{ cursor: 'pointer', border: idx === 0 ? '2px solid var(--mantine-color-blue-5)' : '2px solid transparent', flexShrink: 0 }}
-                        onClick={() => {
-                          const main = document.getElementById('main-gallery-img') as HTMLImageElement;
-                          if (main) main.src = url;
-                          const thumbs = document.querySelectorAll('[data-gallery-thumb]');
-                          thumbs.forEach((t, i) => {
-                            (t as HTMLElement).style.border = i === idx ? '2px solid var(--mantine-color-blue-5)' : '2px solid transparent';
-                          });
-                        }}
-                        data-gallery-thumb
-                        fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Crect fill='%23f1f3f5' width='60' height='60'/%3E%3Ctext x='30' y='38' text-anchor='middle' fill='%23adb5bd' font-size='20'%3E📷%3C/text%3E%3C/svg%3E"
-                      />
-                    ))}
-                  </Group>
-                )}
-              </Stack>
-            );
-          })()}
-
-          {/* Meta info */}
-          <Card withBorder>
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-              <div>
-                <Text size="xs" c="dimmed">Mã sản phẩm</Text>
-                <Text ff="monospace" fw={500}>{product.code}</Text>
-              </div>
-              <div>
-                <Text size="xs" c="dimmed">Hãng</Text>
-                <Text fw={500}>{product.brand || '—'}</Text>
-              </div>
-              <div>
-                <Text size="xs" c="dimmed">Nhóm</Text>
-                <Text fw={500}>{product.group || '—'}</Text>
-              </div>
-              <div>
-                <Text size="xs" c="dimmed">Danh mục</Text>
-                <Text fw={500}>{product.category || '—'}</Text>
-              </div>
-            </SimpleGrid>
-          </Card>
-
-          {/* Prices */}
-          {product.prices && Object.keys(product.prices).length > 0 && (
-            <Card withBorder>
-              <Text fw={600} mb="sm">Bảng giá</Text>
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-                {Object.entries(product.prices).map(([level, price]) => (
-                  <Group key={level} justify="space-between">
-                    <Text size="sm" c="dimmed">
-                      {PRICE_LABELS[level] || level}
-                    </Text>
-                    <Text fw={600} c="blue">{fmt(price as number)}</Text>
-                  </Group>
-                ))}
-              </SimpleGrid>
-            </Card>
-          )}
-
-          {/* Description */}
-          {product.description && (
-            <Card withBorder>
-              <Text fw={600} mb="xs">Mô tả</Text>
-              <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>{product.description}</Text>
-            </Card>
-          )}
-
-          {/* Structured Specs */}
-          {renderStructuredSpecs(product.specs)}
-
-          {/* Campaigns */}
-          {product.campaigns && product.campaigns.length > 0 && (
-            <Card withBorder>
-              <Text fw={600} mb="xs">Chương trình</Text>
-              <Group gap={8} wrap="wrap">
-                {product.campaigns.map((c: any) => (
-                  <div key={c._id || c.name} style={{
-                    display: 'inline-flex', flexDirection: 'column', gap: '4px',
-                    background: 'var(--mantine-color-orange-0)', borderRadius: '8px',
-                    padding: '8px 14px', border: '1px solid var(--mantine-color-orange-2)',
-                  }}>
-                    <Text fw={600} size="sm" c="orange">{c.name}</Text>
-                    {c.targetCustomer && <Text size="xs" c="dimmed">KH: {c.targetCustomer}</Text>}
-                    {c.targetMargin != null && <Text size="xs" c="dimmed">Margin: {c.targetMargin}%</Text>}
-                    {c.note && <Text size="xs" c="dimmed">{c.note}</Text>}
-                  </div>
-                ))}
-              </Group>
-            </Card>
-          )}
-
-          {/* Tags */}
-          {(product.tags || []).length > 0 && (
-            <Group gap={4}>
-              {(product.tags || []).map((t: string) => (
-                <Badge key={t} variant="light" color={t === 'khuyen-mai' ? 'red' : 'gray'}>{t}</Badge>
+    <div ref={ref} style={{ marginBottom: '2rem' }}>
+      <Group mb="sm">
+        <Title order={3}>{group}</Title>
+        <Badge variant="light" color="gray" size="lg">{items.length}</Badge>
+      </Group>
+      {visible && (
+        <Card withBorder shadow="sm" padding={0}>
+          <div style={{ overflowX: 'auto' }}>
+          <Table verticalSpacing="sm" highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th w={60}></Table.Th>
+                <Table.Th>Tên sản phẩm</Table.Th>
+                <Table.Th ta="right" w={150}>Giá</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {items.map((p: any) => (
+                <ProductRow key={p._id || p.id} p={p} onSelect={onSelect} />
               ))}
-            </Group>
-          )}
-
-          {/* Copy link */}
-          <Button
-            variant="light"
-            color={copied ? 'green' : 'gray'}
-            size="sm"
-            leftSection={copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
-            onClick={handleCopy}
-            fullWidth
-          >
-            {copied ? 'Đã copy link' : 'Sao chép link sản phẩm'}
-          </Button>
-        </Stack>
+            </Table.Tbody>
+          </Table>
+          </div>
+        </Card>
       )}
-    </Modal>
+    </div>
   );
 }
 
@@ -554,40 +319,14 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Product groups */}
+      {/* Product groups — lazy render via IntersectionObserver */}
       {!loading && groups.map(([group, items]) => (
-        <div key={group} style={{ marginBottom: '2rem' }}>
-          <Group mb="sm">
-            <Title order={3}>{group}</Title>
-            <Badge variant="light" color="gray" size="lg">{items.length}</Badge>
-          </Group>
-
-          <Card withBorder shadow="sm" padding={0}>
-            <div style={{ overflowX: 'auto' }}>
-            <Table verticalSpacing="sm" highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th w={60}></Table.Th>
-                  <Table.Th>Tên sản phẩm</Table.Th>
-                  <Table.Th ta="right" w={150}>Giá</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {items.map((p: any) => (
-                  <ProductRow key={p._id || p.id} p={p} onSelect={handleProductClick} />
-                ))}
-              </Table.Tbody>
-            </Table>
-            </div>
-          </Card>
-        </div>
+        <LazyGroup key={group} group={group} items={items} onSelect={handleProductClick} />
       ))}
 
       {!loading && filtered.length === 0 && !error && (
         <Text ta="center" py="xl" c="dimmed">Không tìm thấy sản phẩm</Text>
       )}
-
-      <ProductDetailModal />
     </Container>
   );
 }
