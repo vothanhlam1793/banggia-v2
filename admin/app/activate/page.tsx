@@ -202,7 +202,7 @@ export default function ActivatePage() {
                       {p.status === 'ACTIVE' ? 'ACTIVE' : 'PENDING'}
                     </Badge>
                   </Table.Td>
-                  <Table.Td>
+                  <Table.Td onClick={e => e.stopPropagation()}>
                     <Switch
                       checked={p.status === 'ACTIVE'}
                       disabled={toggling.has(p.code)}
