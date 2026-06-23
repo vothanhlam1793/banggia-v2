@@ -19,24 +19,17 @@ router.post('/:code/prices', requireEditor, async (req, res) => {
     const product = await Product.findOne({ code });
     if (!product) return error(res, 'Product not found', 404);
 
-    const oldPrices = {};
-    for (const [level, value] of product.prices || []) {
-      oldPrices[level] = value;
-    }
-
     const changes = [];
-    const newPrices = {};
+    product.prices = product.prices || new Map();
 
     for (const [level, value] of Object.entries(prices)) {
       const newVal = value != null ? Number(value) : 0;
-      const oldVal = oldPrices[level] ?? null;
+      const oldVal = product.prices.get(level) ?? null;
       if (oldVal !== newVal) {
         changes.push({ level, old: oldVal, new: newVal });
       }
-      newPrices[level] = newVal;
+      product.prices.set(level, newVal);
     }
-
-    product.prices = newPrices;
     product.priceUpdatedAt = new Date();
     await product.save();
 
