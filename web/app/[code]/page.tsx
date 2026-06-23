@@ -107,6 +107,7 @@ export default function ProductDetailPage() {
             <IconArrowLeft size={14} /> Bảng giá
           </Group>
         </Anchor>
+        <Anchor href="https://nlmt.creta.vn" target="_blank" c="dimmed" size="sm">Đèn NLMT</Anchor>
         <Button
           variant="light"
           color={copied ? 'green' : 'gray'}

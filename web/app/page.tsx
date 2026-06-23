@@ -181,6 +181,7 @@ export default function HomePage() {
       {/* Header */}
       <Group mb="lg" pb="sm" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
         <Anchor component={Link} href="/" c="blue" fw={500}>Bảng giá</Anchor>
+        <Anchor href="https://nlmt.creta.vn" target="_blank" c="dimmed">Đèn NLMT</Anchor>
         <Anchor component={Link} href="/info" c="dimmed">Liên hệ mua hàng</Anchor>
         <Text ml="auto" size="sm" c="dimmed">
           {filtered.length.toLocaleString()} sản phẩm
