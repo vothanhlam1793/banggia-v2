@@ -7,7 +7,6 @@ import {
   TextInput, Badge, Table, Text, Group, Title, Card, Anchor, Modal, Stack, Image, Divider,
   SimpleGrid, Container, Button,
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
 import { IconSearch, IconPackage, IconCopy, IconCheck } from '@tabler/icons-react';
 
 function fmt(n: number | null | undefined) {
@@ -133,15 +132,209 @@ const ProductRow = memo(({ p, onSelect }: { p: any; onSelect: (p: any) => void }
 });
 ProductRow.displayName = 'ProductRow';
 
+// --- Module-level modal store — avoids HomePage re-render ---
+let _modalProduct: any = null;
+let _modalOpen = false;
+let _modalListeners: (() => void)[] = [];
+
+function openModal(p: any) {
+  _modalProduct = p;
+  _modalOpen = true;
+  _modalListeners.forEach(f => f());
+}
+
+function closeModal() {
+  _modalOpen = false;
+  _modalListeners.forEach(f => f());
+}
+
+function ProductDetailModal() {
+  const [, tick] = useState(0);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const fn = () => tick(x => x + 1);
+    _modalListeners.push(fn);
+    return () => { _modalListeners = _modalListeners.filter(f => f !== fn); };
+  }, []);
+
+  const product = _modalProduct;
+
+  function handleCopy() {
+    if (!product?.code) return;
+    const url = `https://banggia.besen.vn/${product.code}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  }
+
+  return (
+    <Modal opened={_modalOpen} onClose={closeModal} title={product?.name} size="lg" centered>
+      {product && (
+        <Stack gap="md">
+          {/* Gallery */}
+          {(() => {
+            const allImages = (product.images && product.images.length > 0)
+              ? product.images
+              : product.imageUrl ? [product.imageUrl] : [];
+
+            if (allImages.length === 0) {
+              return (
+                <div style={{
+                  height: 200, borderRadius: 'var(--mantine-radius-md)',
+                  background: 'var(--mantine-color-gray-1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <IconPackage size={64} color="var(--mantine-color-gray-5)" />
+                </div>
+              );
+            }
+
+            return (
+              <Stack gap="sm">
+                <Image
+                  src={allImages[0]}
+                  alt={product.name}
+                  height={250}
+                  fit="contain"
+                  radius="md"
+                  fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='250' viewBox='0 0 400 250'%3E%3Crect fill='%23f1f3f5' width='400' height='250'/%3E%3Ctext x='200' y='135' text-anchor='middle' fill='%23adb5bd' font-size='48'%3E📦%3C/text%3E%3C/svg%3E"
+                  id="main-gallery-img"
+                />
+                {allImages.length > 1 && (
+                  <Group gap="xs" style={{ overflowX: 'auto', flexWrap: 'nowrap' }}>
+                    {allImages.map((url: string, idx: number) => (
+                      <Image
+                        key={idx}
+                        src={url}
+                        alt={`${product.name} ${idx + 1}`}
+                        w={60}
+                        h={60}
+                        radius="sm"
+                        fit="cover"
+                        style={{ cursor: 'pointer', border: idx === 0 ? '2px solid var(--mantine-color-blue-5)' : '2px solid transparent', flexShrink: 0 }}
+                        onClick={() => {
+                          const main = document.getElementById('main-gallery-img') as HTMLImageElement;
+                          if (main) main.src = url;
+                          const thumbs = document.querySelectorAll('[data-gallery-thumb]');
+                          thumbs.forEach((t, i) => {
+                            (t as HTMLElement).style.border = i === idx ? '2px solid var(--mantine-color-blue-5)' : '2px solid transparent';
+                          });
+                        }}
+                        data-gallery-thumb
+                        fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Crect fill='%23f1f3f5' width='60' height='60'/%3E%3Ctext x='30' y='38' text-anchor='middle' fill='%23adb5bd' font-size='20'%3E📷%3C/text%3E%3C/svg%3E"
+                      />
+                    ))}
+                  </Group>
+                )}
+              </Stack>
+            );
+          })()}
+
+          {/* Meta info */}
+          <Card withBorder>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+              <div>
+                <Text size="xs" c="dimmed">Mã sản phẩm</Text>
+                <Text ff="monospace" fw={500}>{product.code}</Text>
+              </div>
+              <div>
+                <Text size="xs" c="dimmed">Hãng</Text>
+                <Text fw={500}>{product.brand || '—'}</Text>
+              </div>
+              <div>
+                <Text size="xs" c="dimmed">Nhóm</Text>
+                <Text fw={500}>{product.group || '—'}</Text>
+              </div>
+              <div>
+                <Text size="xs" c="dimmed">Danh mục</Text>
+                <Text fw={500}>{product.category || '—'}</Text>
+              </div>
+            </SimpleGrid>
+          </Card>
+
+          {/* Prices */}
+          {product.prices && Object.keys(product.prices).length > 0 && (
+            <Card withBorder>
+              <Text fw={600} mb="sm">Bảng giá</Text>
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                {Object.entries(product.prices).map(([level, price]) => (
+                  <Group key={level} justify="space-between">
+                    <Text size="sm" c="dimmed">
+                      {PRICE_LABELS[level] || level}
+                    </Text>
+                    <Text fw={600} c="blue">{fmt(price as number)}</Text>
+                  </Group>
+                ))}
+              </SimpleGrid>
+            </Card>
+          )}
+
+          {/* Description */}
+          {product.description && (
+            <Card withBorder>
+              <Text fw={600} mb="xs">Mô tả</Text>
+              <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>{product.description}</Text>
+            </Card>
+          )}
+
+          {/* Structured Specs */}
+          {renderStructuredSpecs(product.specs)}
+
+          {/* Campaigns */}
+          {product.campaigns && product.campaigns.length > 0 && (
+            <Card withBorder>
+              <Text fw={600} mb="xs">Chương trình</Text>
+              <Group gap={8} wrap="wrap">
+                {product.campaigns.map((c: any) => (
+                  <div key={c._id || c.name} style={{
+                    display: 'inline-flex', flexDirection: 'column', gap: '4px',
+                    background: 'var(--mantine-color-orange-0)', borderRadius: '8px',
+                    padding: '8px 14px', border: '1px solid var(--mantine-color-orange-2)',
+                  }}>
+                    <Text fw={600} size="sm" c="orange">{c.name}</Text>
+                    {c.targetCustomer && <Text size="xs" c="dimmed">KH: {c.targetCustomer}</Text>}
+                    {c.targetMargin != null && <Text size="xs" c="dimmed">Margin: {c.targetMargin}%</Text>}
+                    {c.note && <Text size="xs" c="dimmed">{c.note}</Text>}
+                  </div>
+                ))}
+              </Group>
+            </Card>
+          )}
+
+          {/* Tags */}
+          {(product.tags || []).length > 0 && (
+            <Group gap={4}>
+              {(product.tags || []).map((t: string) => (
+                <Badge key={t} variant="light" color={t === 'khuyen-mai' ? 'red' : 'gray'}>{t}</Badge>
+              ))}
+            </Group>
+          )}
+
+          {/* Copy link */}
+          <Button
+            variant="light"
+            color={copied ? 'green' : 'gray'}
+            size="sm"
+            leftSection={copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+            onClick={handleCopy}
+            fullWidth
+          >
+            {copied ? 'Đã copy link' : 'Sao chép link sản phẩm'}
+          </Button>
+        </Stack>
+      )}
+    </Modal>
+  );
+}
+
 export default function HomePage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [activeTag, setActiveTag] = useState('');
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
-  const [copied, setCopied] = useState(false);
 
   const PAGE_SIZE = 200;
 
@@ -220,18 +413,8 @@ export default function HomePage() {
   }, [filtered]);
 
   const handleProductClick = useCallback((p: any) => {
-    setSelectedProduct(p);
-    openModal();
-  }, [openModal]);
-
-  function handleCopy() {
-    if (!selectedProduct?.code) return;
-    const url = `https://banggia.besen.vn/${selectedProduct.code}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {});
-  }
+    openModal(p);
+  }, []);
 
   const searchActive = search.trim().length > 0;
 
@@ -381,171 +564,7 @@ export default function HomePage() {
         <Text ta="center" py="xl" c="dimmed">Không tìm thấy sản phẩm</Text>
       )}
 
-      {/* Product Detail Modal */}
-      <Modal
-        opened={modalOpened}
-        onClose={closeModal}
-        title={selectedProduct?.name}
-        size="lg"
-        centered
-      >
-        {selectedProduct && (
-          <Stack gap="md">
-            {/* Gallery */}
-            {(() => {
-              const allImages = (selectedProduct.images && selectedProduct.images.length > 0)
-                ? selectedProduct.images
-                : selectedProduct.imageUrl ? [selectedProduct.imageUrl] : [];
-
-              if (allImages.length === 0) {
-                return (
-                  <div style={{
-                    height: 200, borderRadius: 'var(--mantine-radius-md)',
-                    background: 'var(--mantine-color-gray-1)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <IconPackage size={64} color="var(--mantine-color-gray-5)" />
-                  </div>
-                );
-              }
-
-              return (
-                <Stack gap="sm">
-                  {/* Main image */}
-                  <Image
-                    src={allImages[0]}
-                    alt={selectedProduct.name}
-                    height={250}
-                    fit="contain"
-                    radius="md"
-                    fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='250' viewBox='0 0 400 250'%3E%3Crect fill='%23f1f3f5' width='400' height='250'/%3E%3Ctext x='200' y='135' text-anchor='middle' fill='%23adb5bd' font-size='48'%3E📦%3C/text%3E%3C/svg%3E"
-                    id="main-gallery-img"
-                  />
-                  {/* Thumbnails */}
-                  {allImages.length > 1 && (
-                    <Group gap="xs" style={{ overflowX: 'auto', flexWrap: 'nowrap' }}>
-                      {allImages.map((url: string, idx: number) => (
-                        <Image
-                          key={idx}
-                          src={url}
-                          alt={`${selectedProduct.name} ${idx + 1}`}
-                          w={60}
-                          h={60}
-                          radius="sm"
-                          fit="cover"
-                          style={{ cursor: 'pointer', border: idx === 0 ? '2px solid var(--mantine-color-blue-5)' : '2px solid transparent', flexShrink: 0 }}
-                          onClick={() => {
-                            const main = document.getElementById('main-gallery-img') as HTMLImageElement;
-                            if (main) main.src = url;
-                            const thumbs = document.querySelectorAll('[data-gallery-thumb]');
-                            thumbs.forEach((t, i) => {
-                              (t as HTMLElement).style.border = i === idx ? '2px solid var(--mantine-color-blue-5)' : '2px solid transparent';
-                            });
-                          }}
-                          data-gallery-thumb
-                          fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Crect fill='%23f1f3f5' width='60' height='60'/%3E%3Ctext x='30' y='38' text-anchor='middle' fill='%23adb5bd' font-size='20'%3E📷%3C/text%3E%3C/svg%3E"
-                        />
-                      ))}
-                    </Group>
-                  )}
-                </Stack>
-              );
-            })()}
-
-            {/* Meta info */}
-            <Card withBorder>
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-                <div>
-                  <Text size="xs" c="dimmed">Mã sản phẩm</Text>
-                  <Text ff="monospace" fw={500}>{selectedProduct.code}</Text>
-                </div>
-                <div>
-                  <Text size="xs" c="dimmed">Hãng</Text>
-                  <Text fw={500}>{selectedProduct.brand || '—'}</Text>
-                </div>
-                <div>
-                  <Text size="xs" c="dimmed">Nhóm</Text>
-                  <Text fw={500}>{selectedProduct.group || '—'}</Text>
-                </div>
-                <div>
-                  <Text size="xs" c="dimmed">Danh mục</Text>
-                  <Text fw={500}>{selectedProduct.category || '—'}</Text>
-                </div>
-              </SimpleGrid>
-            </Card>
-
-            {/* Prices */}
-            {selectedProduct.prices && Object.keys(selectedProduct.prices).length > 0 && (
-              <Card withBorder>
-                <Text fw={600} mb="sm">Bảng giá</Text>
-                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-                  {Object.entries(selectedProduct.prices).map(([level, price]) => (
-                    <Group key={level} justify="space-between">
-                      <Text size="sm" c="dimmed">
-                        {PRICE_LABELS[level] || level}
-                      </Text>
-                      <Text fw={600} c="blue">{fmt(price as number)}</Text>
-                    </Group>
-                  ))}
-                </SimpleGrid>
-              </Card>
-            )}
-
-            {/* Description */}
-            {selectedProduct.description && (
-              <Card withBorder>
-                <Text fw={600} mb="xs">Mô tả</Text>
-                <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>{selectedProduct.description}</Text>
-              </Card>
-            )}
-
-            {/* Structured Specs */}
-            {renderStructuredSpecs(selectedProduct.specs)}
-
-            {/* Campaigns */}
-            {selectedProduct.campaigns && selectedProduct.campaigns.length > 0 && (
-              <Card withBorder>
-                <Text fw={600} mb="xs">Chương trình</Text>
-                <Group gap={8} wrap="wrap">
-                  {selectedProduct.campaigns.map((c: any) => (
-                    <div key={c._id || c.name} style={{
-                      display: 'inline-flex', flexDirection: 'column', gap: '4px',
-                      background: 'var(--mantine-color-orange-0)', borderRadius: '8px',
-                      padding: '8px 14px', border: '1px solid var(--mantine-color-orange-2)',
-                    }}>
-                      <Text fw={600} size="sm" c="orange">{c.name}</Text>
-                      {c.targetCustomer && <Text size="xs" c="dimmed">KH: {c.targetCustomer}</Text>}
-                      {c.targetMargin != null && <Text size="xs" c="dimmed">Margin: {c.targetMargin}%</Text>}
-                      {c.note && <Text size="xs" c="dimmed">{c.note}</Text>}
-                    </div>
-                  ))}
-                </Group>
-              </Card>
-            )}
-
-            {/* Tags */}
-            {(selectedProduct.tags || []).length > 0 && (
-              <Group gap={4}>
-                {(selectedProduct.tags || []).map((t: string) => (
-                  <Badge key={t} variant="light" color={t === 'khuyen-mai' ? 'red' : 'gray'}>{t}</Badge>
-                ))}
-              </Group>
-            )}
-
-            {/* Copy link */}
-            <Button
-              variant="light"
-              color={copied ? 'green' : 'gray'}
-              size="sm"
-              leftSection={copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
-              onClick={handleCopy}
-              fullWidth
-            >
-              {copied ? 'Đã copy link' : 'Sao chép link sản phẩm'}
-            </Button>
-          </Stack>
-        )}
-      </Modal>
+      <ProductDetailModal />
     </Container>
   );
 }
