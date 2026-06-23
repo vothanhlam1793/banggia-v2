@@ -137,9 +137,25 @@ let _modalProduct: any = null;
 let _modalOpen = false;
 let _modalListeners: (() => void)[] = [];
 
+function showLoadingSpinner() {
+  let el = document.getElementById('__modal_spinner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = '__modal_spinner';
+    el.innerHTML = `<div style="position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25)"><div style="width:36px;height:36px;border:3px solid #dde4ef;border-top-color:#3366ff;border-radius:50%;animation:__mspin .6s linear infinite"></div></div>`;
+    document.body.appendChild(el);
+    const s = document.createElement('style');
+    s.textContent = '@keyframes __mspin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(s);
+  } else {
+    el.style.display = 'flex';
+  }
+}
+
 function openModal(p: any) {
   _modalProduct = p;
   _modalOpen = true;
+  showLoadingSpinner();
   _modalListeners.forEach(f => f());
 }
 
@@ -157,6 +173,13 @@ function ProductDetailModal() {
     _modalListeners.push(fn);
     return () => { _modalListeners = _modalListeners.filter(f => f !== fn); };
   }, []);
+
+  useEffect(() => {
+    if (_modalOpen) {
+      const el = document.getElementById('__modal_spinner');
+      if (el) el.style.display = 'none';
+    }
+  });
 
   const product = _modalProduct;
 
