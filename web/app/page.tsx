@@ -190,7 +190,8 @@ export default function HomePage() {
 
       {error && <Text c="red" size="sm" mb="md">{error}</Text>}
 
-      {/* Search */}
+      {/* Search + tags — sticky */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--mantine-color-gray-0)', paddingBottom: '8px' }}>
       <TextInput
         value={search}
         onChange={e => setSearch(e.currentTarget.value)}
@@ -226,6 +227,7 @@ export default function HomePage() {
           ))}
         </Group>
       )}
+      </div>
 
       {loading && (
         <Card withBorder shadow="sm" padding={0}>

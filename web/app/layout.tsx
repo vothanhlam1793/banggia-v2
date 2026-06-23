@@ -18,12 +18,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="vi" className={`${geistSans.variable} h-full`} suppressHydrationWarning>
       <head>
         <ColorSchemeScript defaultColorScheme="light" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `window.difyChatbotConfig = { token: "luejzKyagmoooiLh", baseUrl: "https://dyfi.besen.vn", dynamicScript: true };`,
-          }}
-        />
-        <script src="https://dyfi.besen.vn/embed.min.js" id="luejzKyagmoooiLh" defer />
       </head>
       <body className="min-h-full bg-gray-50 font-sans">
         <MantineProvider defaultColorScheme="light">
