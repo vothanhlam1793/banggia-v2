@@ -59,12 +59,22 @@ export default function ActivatePage() {
       const params: any = { limit: PAGE_SIZE };
       if (statusParam) params.status = statusParam;
       if (activeGroup) params.group = activeGroup;
-      const data = await apiRequest<any[]>('GET', '/products', params);
-      setProducts(data || []);
+
+      const first = await apiRequest<any>('GET', '/products', { ...params, page: 1 }, { raw: true });
+      const totalPages = first.pagination?.totalPages || 1;
+      let all: any[] = first.data || [];
+      setProducts([...all]);
+      setLoading(false);
+
+      for (let p = 2; p <= totalPages; p++) {
+        const res = await apiRequest<any>('GET', '/products', { ...params, page: p }, { raw: true });
+        all = [...all, ...(res.data || [])];
+        setProducts([...all]);
+      }
     } catch (e: any) {
       notifications.show({ message: e.message || 'Lỗi', color: 'red' });
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function toggleStatus(code: string, currentStatus: string) {
