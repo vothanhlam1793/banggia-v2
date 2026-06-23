@@ -1,194 +1,637 @@
 {
     "openapi": "3.0.3",
     "info": {
-        "title": "BangGia Price Lookup API",
-        "description": "Tra cứu GIÁ BÁN sản phẩm Creta Shop.\nTìm kiếm theo tên, mã code, hoặc hãng.\nDùng cho Dify Agent / Chatbot.\n\n## Cách dùng trong Dify Agent\n\nGọi `GET /api/v1/agent/price-lookup?q=<từ khóa>` để search sản phẩm.\nAPI trả JSON gồm `message` (text tóm tắt tiếng Việt) và `results` (danh sách sản phẩm có giá).\nAgent đọc `message` để trả lời tự nhiên, dùng `results` để hiển thị chi tiết.\n\n## Các trường quan trọng\n\n| Field | Ý nghĩa |\n|---|---|\n| `sellPrice` | Giá bán đã format (vd: \"1.200.000đ\") hoặc null nếu chưa có |\n| `updated` | \"Hôm nay\" / \"3 ngày trước\" / null |\n| `message` | Text tóm tắt tiếng Việt, Agent có thể gửi trực tiếp |\n",
-        "version": "1.0.0",
-        "contact": {
-            "name": "BangGia Team",
-            "url": "https://banggia.besen.vn"
-        }
+        "title": "BangGia API",
+        "description": "API tra cứu và quản trị bảng giá Creta Shop.\n\n## Authentication\n\n| Role | Quyền |\n|---|---|\n| `admin` | Toàn quyền |\n| `editor` | Sửa SP, giá, import, tag, group |\n| `viewer` | Chỉ xem |\n| `public` | API công khai (agent, products GET) |\n\nHeader: `Authorization: Bearer <token>`\n\n## Response format\n\nThành công: `{ ok: true, data: ... }`\nCó pagination: `{ ok: true, data: [...], pagination: { total, page, limit, totalPages } }`\nLỗi: `{ ok: false, error: \"message\" }`",
+        "version": "3.0.0",
+        "contact": { "name": "BangGia Team", "url": "https://banggia.besen.vn" }
     },
-    "servers": [
-        {
-            "url": "https://banggia.besen.vn",
-            "description": "Production server"
-        }
-    ],
+    "servers": [{ "url": "https://banggia.besen.vn/api/v1", "description": "Production" }],
     "tags": [
-        {
-            "name": "price",
-            "description": "Tra cứu giá bán sản phẩm"
-        }
+        { "name": "Products", "description": "Quản lý sản phẩm" },
+        { "name": "Prices", "description": "Cập nhật giá" },
+        { "name": "Agent", "description": "Tra cứu giá cho chatbot / khách" },
+        { "name": "Auth", "description": "Đăng nhập" },
+        { "name": "Tags", "description": "Quản lý tag" },
+        { "name": "Groups", "description": "Quản lý nhóm SP" },
+        { "name": "Import", "description": "Import giá từ CSV / JSON" },
+        { "name": "Users", "description": "Quản lý user (admin)" },
+        { "name": "Upload", "description": "Upload ảnh" }
     ],
     "paths": {
-        "/api/v1/agent/price-lookup": {
-            "get": {
-                "tags": ["price"],
-                "summary": "Tìm kiếm sản phẩm và tra giá bán",
-                "description": "Tìm sản phẩm theo từ khóa (tên, mã, hãng).\nTrả về giá bán đã format sẵn.\nKHÔNG trả về giá nhập.\n\n**Cách dùng trong Dify Agent:**\n1. Nhận câu hỏi của user (vd: \"giá camera imou bao nhiêu?\")\n2. Trích xuất từ khóa (vd: \"imou camera\")\n3. Gọi API này với q=<từ khóa>\n4. Đọc `message` để có text tóm tắt\n5. Gửi text đó + liệt kê `results` cho user\n",
-                "operationId": "searchPrice",
-                "parameters": [
-                    {
-                        "name": "q",
-                        "in": "query",
-                        "required": true,
-                        "description": "Từ khóa tìm kiếm (tên sản phẩm, mã code, hoặc hãng). Có thể gõ nhiều từ cách nhau bằng dấu cách.",
-                        "schema": { "type": "string" },
-                        "example": "camera IMOU"
-                    },
-                    {
-                        "name": "limit",
-                        "in": "query",
-                        "required": false,
-                        "description": "Số kết quả tối đa (1-20, mặc định 10)",
-                        "schema": { "type": "integer", "default": 10, "minimum": 1, "maximum": 20 }
+        "/auth/login": {
+            "post": {
+                "tags": ["Auth"],
+                "summary": "Đăng nhập",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": { "type": "object", "required": ["email", "password"], "properties": { "email": { "type": "string" }, "password": { "type": "string" } } }
+                        }
                     }
+                },
+                "responses": {
+                    "200": { "description": "Token + user info" },
+                    "401": { "description": "Sai email/password" }
+                }
+            }
+        },
+        "/auth/me": {
+            "get": {
+                "tags": ["Auth"],
+                "summary": "Lấy thông tin user hiện tại",
+                "security": [{ "bearerAuth": [] }],
+                "responses": { "200": { "description": "User info" } }
+            }
+        },
+
+        "/products": {
+            "get": {
+                "tags": ["Products"],
+                "summary": "Danh sách sản phẩm (có phân trang)",
+                "parameters": [
+                    { "name": "search", "in": "query", "schema": { "type": "string" }, "description": "Tìm theo tên, mã, hãng" },
+                    { "name": "brand", "in": "query", "schema": { "type": "string" }, "description": "Lọc theo hãng" },
+                    { "name": "group", "in": "query", "schema": { "type": "string" }, "description": "Lọc theo nhóm" },
+                    { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["ACTIVE", "PENDING_MAP"] }, "description": "Lọc theo trạng thái" },
+                    { "name": "isPublic", "in": "query", "schema": { "type": "string", "enum": ["true", "false"] }, "description": "Lọc public" },
+                    { "name": "tag", "in": "query", "schema": { "type": "string" }, "description": "Lọc theo tag" },
+                    { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+                    { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } }
+                ],
+                "responses": { "200": { "description": "Danh sách SP + pagination" } }
+            }
+        },
+        "/products/brands": {
+            "get": {
+                "tags": ["Products"],
+                "summary": "Danh sách hãng (distinct, sorted)",
+                "responses": { "200": { "description": "string[]" } }
+            }
+        },
+        "/products/count": {
+            "get": {
+                "tags": ["Products"],
+                "summary": "Đếm số SP theo filter",
+                "parameters": [
+                    { "name": "status", "in": "query", "schema": { "type": "string" } },
+                    { "name": "group", "in": "query", "schema": { "type": "string" } },
+                    { "name": "isPublic", "in": "query", "schema": { "type": "string", "enum": ["true", "false"] } }
+                ],
+                "responses": { "200": { "description": "number" } }
+            }
+        },
+        "/products/stale": {
+            "get": {
+                "tags": ["Products"],
+                "summary": "Sản phẩm có giá cũ / hết hạn",
+                "parameters": [
+                    { "name": "group", "in": "query", "schema": { "type": "string" } },
+                    { "name": "status", "in": "query", "schema": { "type": "string" } },
+                    { "name": "hasPrice", "in": "query", "schema": { "type": "string", "enum": ["true", "false"] } },
+                    { "name": "staleStatus", "in": "query", "schema": { "type": "string", "enum": ["noPrice", "stale", "warning", "ok"] }, "description": "noPrice=chưa có giá, stale=quá hạn, warning=sắp hết, ok=còn hạn" },
+                    { "name": "search", "in": "query", "schema": { "type": "string" } },
+                    { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+                    { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 200 } }
+                ],
+                "responses": { "200": { "description": "Danh sách SP + daysSinceUpdate, isStale, isWarning" } }
+            }
+        },
+        "/products/strategic": {
+            "get": {
+                "tags": ["Products"],
+                "summary": "Sản phẩm chiến lược / có campaign",
+                "parameters": [
+                    { "name": "isStrategic", "in": "query", "schema": { "type": "string", "enum": ["true"] } },
+                    { "name": "campaign", "in": "query", "schema": { "type": "string" } },
+                    { "name": "targetCustomer", "in": "query", "schema": { "type": "string" } },
+                    { "name": "search", "in": "query", "schema": { "type": "string" } },
+                    { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+                    { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } }
+                ],
+                "responses": { "200": { "description": "Danh sách SP chiến lược" } }
+            }
+        },
+        "/products/campaigns": {
+            "get": {
+                "tags": ["Products"],
+                "summary": "Danh sách tên campaign (distinct)",
+                "responses": { "200": { "description": "string[]" } }
+            }
+        },
+        "/products/last-sync": {
+            "get": {
+                "tags": ["Products"],
+                "summary": "Thông tin lần sync KiotViet cuối",
+                "responses": { "200": { "description": "SyncLog object hoặc null" } }
+            }
+        },
+        "/products/sync-kiotviet": {
+            "post": {
+                "tags": ["Products"],
+                "summary": "Đồng bộ SP từ KiotViet",
+                "security": [{ "bearerAuth": [] }],
+                "responses": { "200": { "description": "{ created, updated, skipped, total }" } }
+            }
+        },
+        "/products/{code}": {
+            "get": {
+                "tags": ["Products"],
+                "summary": "Chi tiết 1 sản phẩm",
+                "parameters": [{ "name": "code", "in": "path", "required": true, "schema": { "type": "string" }, "example": "SP001469" }],
+                "responses": { "200": { "description": "Product detail" }, "404": { "description": "Not found" } }
+            },
+            "patch": {
+                "tags": ["Products"],
+                "summary": "Cập nhật thông tin SP",
+                "security": [{ "bearerAuth": [] }],
+                "parameters": [{ "name": "code", "in": "path", "required": true, "schema": { "type": "string" } }],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "name": { "type": "string" },
+                                    "brand": { "type": "string" },
+                                    "group": { "type": "string" },
+                                    "status": { "type": "string", "enum": ["ACTIVE", "PENDING_MAP"] },
+                                    "isPublic": { "type": "boolean" },
+                                    "tags": { "type": "array", "items": { "type": "string" } },
+                                    "description": { "type": "string" },
+                                    "imageUrl": { "type": "string" },
+                                    "images": { "type": "array", "items": { "type": "string" } },
+                                    "isStrategic": { "type": "boolean" },
+                                    "strategicPriority": { "type": "number" }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": { "200": { "description": "Updated product" }, "404": { "description": "Not found" } }
+            }
+        },
+        "/products/{code}/logs": {
+            "get": {
+                "tags": ["Products"],
+                "summary": "Lịch sử thay đổi giá",
+                "parameters": [{ "name": "code", "in": "path", "required": true, "schema": { "type": "string" } }],
+                "responses": { "200": { "description": "PriceLog[]" } }
+            }
+        },
+        "/products/{code}/prices": {
+            "post": {
+                "tags": ["Prices"],
+                "summary": "Cập nhật giá SP (merge, không ghi đè)",
+                "security": [{ "bearerAuth": [] }],
+                "parameters": [{ "name": "code", "in": "path", "required": true, "schema": { "type": "string" } }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["prices"],
+                                "properties": {
+                                    "prices": {
+                                        "type": "object",
+                                        "description": "Các mức giá cần cập nhật. Chỉ levels gửi lên mới được update, levels khác giữ nguyên (merge).",
+                                        "properties": {
+                                            "L0": { "type": "number", "description": "Sỉ lớn" },
+                                            "L1": { "type": "number", "description": "Sỉ vừa" },
+                                            "L2": { "type": "number", "description": "Sỉ nhỏ" },
+                                            "L3": { "type": "number", "description": "Bán buôn" },
+                                            "L4": { "type": "number", "description": "Bán lẻ" },
+                                            "L5": { "type": "number", "description": "Tham khảo" }
+                                        }
+                                    },
+                                    "notes": { "type": "string", "description": "Ghi chú cho log" }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": { "200": { "description": "Product updated" }, "404": { "description": "Not found" } }
+            }
+        },
+        "/products/{code}/campaigns": {
+            "post": {
+                "tags": ["Products"],
+                "summary": "Thêm campaign cho SP",
+                "security": [{ "bearerAuth": [] }],
+                "parameters": [{ "name": "code", "in": "path", "required": true, "schema": { "type": "string" } }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["name"],
+                                "properties": {
+                                    "name": { "type": "string", "description": "Tên campaign" },
+                                    "startDate": { "type": "string", "format": "date" },
+                                    "endDate": { "type": "string", "format": "date" },
+                                    "targetMargin": { "type": "number" },
+                                    "targetCustomer": { "type": "string" },
+                                    "note": { "type": "string" }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": { "200": { "description": "Product updated" } }
+            }
+        },
+        "/products/{code}/campaigns/{campaignId}": {
+            "delete": {
+                "tags": ["Products"],
+                "summary": "Xóa campaign khỏi SP",
+                "security": [{ "bearerAuth": [] }],
+                "parameters": [
+                    { "name": "code", "in": "path", "required": true, "schema": { "type": "string" } },
+                    { "name": "campaignId", "in": "path", "required": true, "schema": { "type": "string" } }
+                ],
+                "responses": { "200": { "description": "Product updated" } }
+            }
+        },
+
+        "/tags": {
+            "get": {
+                "tags": ["Tags"],
+                "summary": "Danh sách tags + count",
+                "responses": { "200": { "description": "{ name, count }[]" } }
+            },
+            "post": {
+                "tags": ["Tags"],
+                "summary": "Tạo tag mới",
+                "security": [{ "bearerAuth": [] }],
+                "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" } } } } } },
+                "responses": { "200": { "description": "Created" }, "409": { "description": "Đã tồn tại" } }
+            }
+        },
+        "/tags/rename": {
+            "post": {
+                "tags": ["Tags"],
+                "summary": "Đổi tên tag (trên tất cả SP)",
+                "security": [{ "bearerAuth": [] }],
+                "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["old", "new"], "properties": { "old": { "type": "string" }, "new": { "type": "string", "description": "Tên mới" } } } } } },
+                "responses": { "200": { "description": "Renamed" } }
+            }
+        },
+        "/tags/{name}": {
+            "delete": {
+                "tags": ["Tags"],
+                "summary": "Xóa tag khỏi tất cả SP",
+                "security": [{ "bearerAuth": [] }],
+                "parameters": [{ "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }],
+                "responses": { "200": { "description": "Deleted" } }
+            }
+        },
+
+        "/groups": {
+            "get": {
+                "tags": ["Groups"],
+                "summary": "Danh sách nhóm + count",
+                "responses": { "200": { "description": "{ name, count }[]" } }
+            },
+            "post": {
+                "tags": ["Groups"],
+                "summary": "Tạo nhóm mới",
+                "security": [{ "bearerAuth": [] }],
+                "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" } } } } } },
+                "responses": { "200": { "description": "Created" }, "409": { "description": "Đã tồn tại" } }
+            }
+        },
+        "/groups/rename": {
+            "post": {
+                "tags": ["Groups"],
+                "summary": "Đổi tên nhóm (trên tất cả SP)",
+                "security": [{ "bearerAuth": [] }],
+                "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["old", "new"], "properties": { "old": { "type": "string" }, "new": { "type": "string", "description": "Tên mới" } } } } } },
+                "responses": { "200": { "description": "Renamed" } }
+            }
+        },
+        "/groups/{name}": {
+            "delete": {
+                "tags": ["Groups"],
+                "summary": "Xóa nhóm (gỡ group khỏi SP)",
+                "security": [{ "bearerAuth": [] }],
+                "parameters": [{ "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }],
+                "responses": { "200": { "description": "Deleted" } }
+            }
+        },
+
+        "/agent/search": {
+            "get": {
+                "tags": ["Agent"],
+                "summary": "Tìm kiếm SP công khai",
+                "parameters": [
+                    { "name": "q", "in": "query", "schema": { "type": "string" }, "description": "Từ khóa (tên, mã, hãng)" },
+                    { "name": "tag", "in": "query", "schema": { "type": "string" } },
+                    { "name": "group", "in": "query", "schema": { "type": "string" } },
+                    { "name": "brand", "in": "query", "schema": { "type": "string" } },
+                    { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+                ],
+                "responses": { "200": { "description": "SP[] with prices, costPrice" } }
+            }
+        },
+        "/agent/product/{code}": {
+            "get": {
+                "tags": ["Agent"],
+                "summary": "Chi tiết SP công khai",
+                "parameters": [{ "name": "code", "in": "path", "required": true, "schema": { "type": "string" } }],
+                "responses": { "200": { "description": "Product detail" }, "404": { "description": "Not found" } }
+            }
+        },
+        "/agent/promotions": {
+            "get": {
+                "tags": ["Agent"],
+                "summary": "Sản phẩm đang khuyến mãi (tag: khuyen-mai, max 20)",
+                "responses": { "200": { "description": "{ promotions, message }" } }
+            }
+        },
+        "/agent/price-lookup": {
+            "get": {
+                "tags": ["Agent"],
+                "summary": "Tra giá bán cho chatbot / Dify Agent",
+                "description": "Tìm SP công khai theo từ khóa, trả về giá bán (L4 > L5) + message tiếng Việt.\nDùng cho Dify Agent.",
+                "parameters": [
+                    { "name": "q", "in": "query", "required": true, "schema": { "type": "string" }, "example": "camera IMOU", "description": "Từ khóa tìm kiếm" },
+                    { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10, "minimum": 1, "maximum": 20 } }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Kết quả tìm kiếm",
+                        "description": "{ query, results, total, message }",
                         "content": {
                             "application/json": {
-                                "schema": { "$ref": "#/components/schemas/PriceLookupResponse" },
                                 "example": {
                                     "ok": true,
                                     "data": {
                                         "query": "IMOU",
-                                        "results": [
-                                            {
-                                                "code": "SP900731",
-                                                "name": "IMOU A22EP (CTKM T7)",
-                                                "brand": "",
-                                                "group": "CAMERA IP",
-                                                "sellPrice": "890.000đ",
-                                                "updated": "Hôm nay",
-                                                "priceUpdatedAt": "2026-06-05T06:41:41.333Z"
-                                            }
-                                        ],
+                                        "results": [{ "code": "SP900731", "name": "IMOU A22EP", "brand": "IMOU", "groupId": "CAMERA IP", "sellPrice": "890.000đ", "updated": "Hôm nay" }],
                                         "total": 1,
                                         "message": "Tìm thấy 1 sản phẩm"
                                     }
                                 }
                             }
                         }
-                    },
-                    "400": {
-                        "description": "Thiếu tham số q",
-                        "content": {
-                            "application/json": {
-                                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
-                                "example": { "ok": false, "error": "Thiếu tham số q" }
-                            }
-                        }
                     }
                 }
             }
         },
-        "/api/v1/agent/price/{code}": {
+        "/agent/price/{code}": {
             "get": {
-                "tags": ["price"],
-                "summary": "Tra giá bán chi tiết 1 sản phẩm theo mã code",
-                "description": "Lấy thông tin chi tiết + giá bán của 1 sản phẩm cụ thể.\nKHÔNG trả về giá nhập.\nDùng khi user hỏi về 1 mã code cụ thể.\n",
-                "operationId": "getPriceByCode",
-                "parameters": [
-                    {
-                        "name": "code",
-                        "in": "path",
-                        "required": true,
-                        "description": "Mã sản phẩm (vd: SP900731)",
-                        "schema": { "type": "string" },
-                        "example": "SP900731"
-                    }
-                ],
+                "tags": ["Agent"],
+                "summary": "Tra giá chi tiết 1 SP cho chatbot",
+                "parameters": [{ "name": "code", "in": "path", "required": true, "schema": { "type": "string" }, "example": "SP900731" }],
                 "responses": {
                     "200": {
-                        "description": "Thông tin sản phẩm",
-                        "content": {
-                            "application/json": {
-                                "schema": { "$ref": "#/components/schemas/ProductDetail" },
-                                "example": {
-                                    "ok": true,
-                                    "data": {
-                                        "code": "SP900731",
-                                        "name": "IMOU A22EP (CTKM T7)",
-                                        "brand": "",
-                                        "group": "CAMERA IP",
-                                        "sellPrice": "890.000đ",
-                                        "updated": "Hôm nay",
-                                        "priceUpdatedAt": "2026-06-05T06:41:41.333Z",
-                                        "description": "Camera IP 2MP IMOU A22EP",
-                                        "imageUrl": ""
+                        "description": "{ code, name, brand, group, sellPrice, updated, description, imageUrl }"
+                    },
+                    "404": { "description": "Không tìm thấy" }
+                }
+            }
+        },
+        "/agent/strategic": {
+            "get": {
+                "tags": ["Agent"],
+                "summary": "Sản phẩm chiến lược (có campaign)",
+                "parameters": [
+                    { "name": "campaign", "in": "query", "schema": { "type": "string" } },
+                    { "name": "targetCustomer", "in": "query", "schema": { "type": "string" } }
+                ],
+                "responses": { "200": { "description": "{ strategic, total, message }" } }
+            }
+        },
+
+        "/import/sell/upload": {
+            "post": {
+                "tags": ["Import"],
+                "summary": "Import giá bán từ CSV",
+                "security": [{ "bearerAuth": [] }],
+                "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "type": "object", "required": ["file"], "properties": { "file": { "type": "string", "format": "binary" }, "source": { "type": "string" } } } } } },
+                "responses": { "200": { "description": "{ batchId, total, autoMatched, pending }" } }
+            }
+        },
+        "/import/cost/upload": {
+            "post": {
+                "tags": ["Import"],
+                "summary": "Import giá nhập từ CSV",
+                "security": [{ "bearerAuth": [] }],
+                "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "type": "object", "required": ["file"], "properties": { "file": { "type": "string", "format": "binary" }, "source": { "type": "string" } } } } } },
+                "responses": { "200": { "description": "{ batchId, total, autoMatched, pending }" } }
+            }
+        },
+        "/import/bulk": {
+            "post": {
+                "tags": ["Import"],
+                "summary": "Import giá bằng JSON (cho agent)",
+                "security": [{ "bearerAuth": [] }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["sourceName", "type", "items"],
+                                "properties": {
+                                    "sourceName": { "type": "string", "example": "DLVIP" },
+                                    "type": { "type": "string", "enum": ["sell", "cost"] },
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": { "type": "string", "description": "Mã SP (optional)" },
+                                                "name": { "type": "string", "description": "Tên SP" },
+                                                "price": { "type": "number", "description": "Giá" }
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
-                    },
-                    "404": {
-                        "description": "Không tìm thấy",
-                        "content": {
-                            "application/json": {
-                                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
-                                "example": { "ok": false, "error": "Không tìm thấy sản phẩm" }
+                    }
+                },
+                "responses": { "200": { "description": "{ batchId, total, autoMatched, pending }" } }
+            }
+        },
+        "/import/search": {
+            "get": {
+                "tags": ["Import"],
+                "summary": "Tìm SP để match trong import",
+                "security": [{ "bearerAuth": [] }],
+                "parameters": [{ "name": "q", "in": "query", "required": true, "schema": { "type": "string" } }],
+                "responses": { "200": { "description": "Candidate[] có score" } }
+            }
+        },
+        "/import/pending": {
+            "get": {
+                "tags": ["Import"],
+                "summary": "Danh sách import chờ duyệt",
+                "security": [{ "bearerAuth": [] }],
+                "parameters": [
+                    { "name": "type", "in": "query", "schema": { "type": "string", "enum": ["sell", "cost"] } },
+                    { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+                    { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } }
+                ],
+                "responses": { "200": { "description": "PriceImport[] + pagination" } }
+            }
+        },
+        "/import/batches": {
+            "get": {
+                "tags": ["Import"],
+                "summary": "Danh sách các batch import",
+                "security": [{ "bearerAuth": [] }],
+                "parameters": [
+                    { "name": "type", "in": "query", "schema": { "type": "string", "enum": ["sell", "cost"] } }
+                ],
+                "responses": { "200": { "description": "Batch summary[]" } }
+            }
+        },
+        "/import/batch/{batchId}": {
+            "get": {
+                "tags": ["Import"],
+                "summary": "Chi tiết 1 batch (stats + items)",
+                "security": [{ "bearerAuth": [] }],
+                "parameters": [{ "name": "batchId", "in": "path", "required": true, "schema": { "type": "string" } }],
+                "responses": { "200": { "description": "{ batchId, stats, items }" } }
+            }
+        },
+        "/import/batch/approve": {
+            "post": {
+                "tags": ["Import"],
+                "summary": "Duyệt toàn bộ batch (apply giá vào SP)",
+                "security": [{ "bearerAuth": [] }],
+                "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["batchId"], "properties": { "batchId": { "type": "string" } } } } } },
+                "responses": { "200": { "description": "{ approved, total }" } }
+            }
+        },
+        "/import/batch/complete": {
+            "post": {
+                "tags": ["Import"],
+                "summary": "Đánh dấu batch hoàn thành",
+                "security": [{ "bearerAuth": [] }],
+                "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["batchId"], "properties": { "batchId": { "type": "string" } } } } } },
+                "responses": { "200": { "description": "{ completed }" } }
+            }
+        },
+        "/import/{id}/approve": {
+            "post": {
+                "tags": ["Import"],
+                "summary": "Duyệt 1 item (apply giá vào SP)",
+                "security": [{ "bearerAuth": [] }],
+                "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+                "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "productCode": { "type": "string", "description": "Mã SP nếu muốn ghi đè match" } } } } } },
+                "responses": { "200": { "description": "Approved entry" } }
+            }
+        },
+        "/import/{id}/reject": {
+            "post": {
+                "tags": ["Import"],
+                "summary": "Từ chối 1 item",
+                "security": [{ "bearerAuth": [] }],
+                "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+                "responses": { "200": { "description": "Rejected entry" } }
+            }
+        },
+        "/import/{id}/undo": {
+            "post": {
+                "tags": ["Import"],
+                "summary": "Hoàn tác duyệt/từ chối → PENDING",
+                "security": [{ "bearerAuth": [] }],
+                "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+                "responses": { "200": { "description": "Reverted entry" } }
+            }
+        },
+        "/import/review": {
+            "get": {
+                "tags": ["Import"],
+                "summary": "Trang review import (EJS)",
+                "parameters": [{ "name": "batch", "in": "query", "schema": { "type": "string" }, "description": "Lọc theo batchId" }],
+                "responses": { "200": { "description": "HTML page" } }
+            }
+        },
+
+        "/users": {
+            "get": {
+                "tags": ["Users"],
+                "summary": "Danh sách user",
+                "security": [{ "bearerAuth": [] }],
+                "responses": { "200": { "description": "User[] (không có password)" } }
+            },
+            "post": {
+                "tags": ["Users"],
+                "summary": "Tạo user mới",
+                "security": [{ "bearerAuth": [] }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["email", "name", "password"],
+                                "properties": {
+                                    "email": { "type": "string", "format": "email" },
+                                    "name": { "type": "string" },
+                                    "password": { "type": "string", "minLength": 6 },
+                                    "role": { "type": "string", "enum": ["admin", "editor", "viewer"], "default": "viewer" }
+                                }
                             }
                         }
                     }
-                }
+                },
+                "responses": { "200": { "description": "Created user" } }
+            }
+        },
+        "/users/{id}": {
+            "put": {
+                "tags": ["Users"],
+                "summary": "Cập nhật user",
+                "security": [{ "bearerAuth": [] }],
+                "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "name": { "type": "string" },
+                                    "role": { "type": "string", "enum": ["admin", "editor", "viewer"] },
+                                    "password": { "type": "string", "minLength": 6 }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": { "200": { "description": "Updated user" } }
+            },
+            "delete": {
+                "tags": ["Users"],
+                "summary": "Xóa user",
+                "security": [{ "bearerAuth": [] }],
+                "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+                "responses": { "200": { "description": "{ deleted: true }" } }
+            }
+        },
+
+        "/upload": {
+            "post": {
+                "tags": ["Upload"],
+                "summary": "Upload ảnh (jpg/png/gif/webp/svg, max 5MB)",
+                "security": [{ "bearerAuth": [] }],
+                "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "type": "object", "required": ["image"], "properties": { "image": { "type": "string", "format": "binary" } } } } } },
+                "responses": { "200": { "description": "{ url, filename }" } }
             }
         }
     },
     "components": {
-        "schemas": {
-            "PriceItem": {
-                "type": "object",
-                "description": "Một sản phẩm trong kết quả search",
-                "properties": {
-                    "code": { "type": "string", "description": "Mã sản phẩm", "example": "SP900731" },
-                    "name": { "type": "string", "description": "Tên sản phẩm", "example": "IMOU A22EP (CTKM T7)" },
-                    "brand": { "type": "string", "description": "Hãng sản xuất", "example": "IMOU" },
-                    "group": { "type": "string", "description": "Nhóm sản phẩm", "example": "CAMERA IP" },
-                    "sellPrice": { "type": "string", "nullable": true, "description": "Giá bán đã format (vd: '890.000đ') hoặc null", "example": "890.000đ" },
-                    "updated": { "type": "string", "nullable": true, "description": "\"Hôm nay\" / \"3 ngày trước\" / null", "example": "Hôm nay" },
-                    "priceUpdatedAt": { "type": "string", "format": "date-time", "nullable": true, "description": "Thời điểm cập nhật giá gần nhất" }
-                }
-            },
-            "PriceLookupResponse": {
-                "type": "object",
-                "description": "Response từ API search giá",
-                "properties": {
-                    "ok": { "type": "boolean", "example": true },
-                    "data": {
-                        "type": "object",
-                        "properties": {
-                            "query": { "type": "string", "description": "Từ khóa đã search" },
-                            "results": { "type": "array", "items": { "$ref": "#/components/schemas/PriceItem" } },
-                            "total": { "type": "integer", "description": "Số kết quả" },
-                            "message": { "type": "string", "description": "**QUAN TRỌNG**: Text tóm tắt tiếng Việt. Agent có thể gửi trực tiếp text này cho user." }
-                        }
-                    }
-                }
-            },
-            "ProductDetail": {
-                "type": "object",
-                "description": "Response chi tiết 1 sản phẩm",
-                "properties": {
-                    "ok": { "type": "boolean" },
-                    "data": {
-                        "type": "object",
-                        "allOf": [{ "$ref": "#/components/schemas/PriceItem" }],
-                        "properties": {
-                            "description": { "type": "string", "description": "Mô tả sản phẩm" },
-                            "imageUrl": { "type": "string", "description": "Link ảnh sản phẩm" }
-                        }
-                    }
-                }
-            },
-            "ErrorResponse": {
-                "type": "object",
-                "properties": {
-                    "ok": { "type": "boolean", "example": false },
-                    "error": { "type": "string", "example": "Không tìm thấy sản phẩm" }
-                }
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
             }
         }
     }

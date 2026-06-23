@@ -21,7 +21,7 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
-app.get('/api-docs', (_, res) => res.render('api-docs'));
+app.get('/api/v1/api-docs', (_, res) => res.render('api-docs'));
 
 app.use('/import', importRouter);
 
