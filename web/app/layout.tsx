@@ -43,9 +43,9 @@ export default function RootLayout({
         <MantineProvider defaultColorScheme="light">
           <QueryProvider>
             {children}
+            {modal}
             <PrefetchProducts />
           </QueryProvider>
-          {modal}
         </MantineProvider>
       </body>
     </html>
