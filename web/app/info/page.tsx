@@ -47,6 +47,7 @@ export default function InfoPage() {
             <Anchor
               href="https://maps.app.goo.gl/huXgZpTDH3yrGSdE8"
               target="_blank"
+              rel="noopener noreferrer"
               c="blue"
               size="sm"
               mt={4}
@@ -86,7 +87,7 @@ export default function InfoPage() {
                 <Anchor href="tel:0869270717" c="blue" fw={500}>
                   0869.27.07.17
                 </Anchor>
-                <Anchor href="https://zalo.me/0869270717" c="blue" size="sm">
+                <Anchor href="https://zalo.me/0869270717" c="blue" size="sm" target="_blank" rel="noopener noreferrer">
                   Zalo
                 </Anchor>
               </Group>
@@ -94,7 +95,7 @@ export default function InfoPage() {
                 <Anchor href="tel:0334270717" c="blue" fw={500}>
                   0334.27.07.17
                 </Anchor>
-                <Anchor href="https://zalo.me/0334270717" c="blue" size="sm">
+                <Anchor href="https://zalo.me/0334270717" c="blue" size="sm" target="_blank" rel="noopener noreferrer">
                   Zalo
                 </Anchor>
               </Group>
@@ -115,7 +116,7 @@ export default function InfoPage() {
                 <Anchor href="tel:0862270717" c="blue" fw={500}>
                   0862.27.07.17
                 </Anchor>
-                <Anchor href="https://zalo.me/0862270717" c="blue" size="sm">
+                <Anchor href="https://zalo.me/0862270717" c="blue" size="sm" target="_blank" rel="noopener noreferrer">
                   Zalo
                 </Anchor>
               </Group>
@@ -123,7 +124,7 @@ export default function InfoPage() {
                 <Anchor href="tel:0362697197" c="blue" fw={500}>
                   0362.69.71.97
                 </Anchor>
-                <Anchor href="https://zalo.me/0362697197" c="blue" size="sm">
+                <Anchor href="https://zalo.me/0362697197" c="blue" size="sm" target="_blank" rel="noopener noreferrer">
                   Zalo
                 </Anchor>
               </Group>
@@ -144,6 +145,7 @@ export default function InfoPage() {
             <Anchor
               href="https://creta.vn"
               target="_blank"
+              rel="noopener noreferrer"
               c="blue"
               size="sm"
             >

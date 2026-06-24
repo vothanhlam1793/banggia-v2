@@ -1,21 +1,22 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef, useDeferredValue } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Container, Group, Text, Title, Anchor, Button } from '@mantine/core'
 import type { Product } from '@/lib/types'
-import { useModal } from '@/lib/modal-context'
 import { useProducts } from '@/lib/queries'
 import LazyGroup from '@/components/LazyGroup'
 import SkeletonTable from '@/components/SkeletonTable'
 import ProductTable from '@/components/ProductTable'
 import SearchBar from '@/components/SearchBar'
 
-export default function HomePageClient() {
-  const { data: products = [], isLoading, error, refetch } = useProducts()
+export default function HomePageClient({ initialProducts }: { initialProducts?: Product[] }) {
+  const router = useRouter()
+  const { data: products = [], isLoading, error, refetch } = useProducts(initialProducts)
   const [search, setSearch] = useState('')
   const [activeTag, setActiveTag] = useState('')
-  const { openModal } = useModal()
+  const deferredSearch = useDeferredValue(search)
 
   const allTags = useMemo(() => {
     const ts = new Set<string>()
@@ -26,8 +27,8 @@ export default function HomePageClient() {
   const filtered = useMemo(() => {
     let result = products
     if (activeTag) result = result.filter((p) => (p.tags || []).includes(activeTag))
-    if (search.trim()) {
-      const q = search.trim().toLowerCase()
+    if (deferredSearch.trim()) {
+      const q = deferredSearch.trim().toLowerCase()
       result = result.filter((p: Product) =>
         [p.name, p.code, p.group, p.brand]
           .filter((s): s is string => typeof s === 'string')
@@ -35,7 +36,7 @@ export default function HomePageClient() {
       )
     }
     return result
-  }, [products, search, activeTag])
+  }, [products, deferredSearch, activeTag])
 
   const groups = useMemo(() => {
     const map = new Map<string, Product[]>()
@@ -51,16 +52,16 @@ export default function HomePageClient() {
 
   const handleProductClick = useCallback(
     (p: Product) => {
-      openModal(p)
+      router.push('/' + p.code)
     },
-    [openModal]
+    [router]
   )
 
-  const searchActive = search.trim().length > 0
+  const searchActive = deferredSearch.trim().length > 0
 
   const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
   useEffect(() => {
-    if (searchActive) {
+    if (search.trim()) {
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
       searchTimerRef.current = setTimeout(() => {
         window.umami?.track('search', { query: search.trim() })
@@ -69,7 +70,7 @@ export default function HomePageClient() {
     return () => {
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
     }
-  }, [search, searchActive])
+  }, [search])
 
   useEffect(() => {
     if (activeTag) {
@@ -87,7 +88,7 @@ export default function HomePageClient() {
         <Anchor component={Link} href="/" c="blue" fw={500}>
           Bảng giá
         </Anchor>
-        <Anchor href="https://nlmt.creta.vn" target="_blank" c="dimmed">
+        <Anchor href="https://nlmt.creta.vn" target="_blank" rel="noopener noreferrer" c="dimmed">
           Đèn NLMT
         </Anchor>
         <Anchor component={Link} href="/info" c="dimmed">
@@ -102,7 +103,7 @@ export default function HomePageClient() {
         <Group justify="center" py="xl">
           <div style={{ textAlign: 'center' }}>
             <Text c="red" size="sm" mb="md">
-              {(error as Error).message || 'Lỗi tải dữ liệu'}
+              {error instanceof Error ? error.message : 'Lỗi tải dữ liệu'}
             </Text>
             <Button variant="light" color="red" size="sm" onClick={() => refetch()}>
               Thử lại

@@ -9,7 +9,7 @@ import type { Product } from '@/lib/types'
 const ProductRow = memo(function ProductRow({ p, onClick }: { p: Product; onClick: (p: Product) => void }) {
   const dp = displayPrice(p.prices)
   return (
-    <Table.Tr onClick={() => { window.umami?.track('open-modal', { code: p.code, name: p.name || '' }); onClick(p); }} style={{ cursor: 'pointer' }}>
+    <Table.Tr onClick={() => { window.umami?.track('view-product', { code: p.code, name: p.name || '' }); onClick(p); }} style={{ cursor: 'pointer' }}>
       <Table.Td>
         {p.imageUrl ? (
           <Image

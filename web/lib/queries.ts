@@ -1,12 +1,13 @@
 'use client'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useCallback } from 'react'
 import { apiRequest } from './api'
 import type { Product, PaginatedResponse } from './types'
 
 const PAGE_SIZE = 200
 
-export function useProducts() {
+export function useProducts(initialData?: Product[]) {
   return useQuery({
     queryKey: ['products', 'active'],
     queryFn: async () => {
@@ -41,6 +42,7 @@ export function useProducts() {
       return all
     },
     staleTime: 5 * 60 * 1000,
+    initialData,
   })
 }
 
@@ -55,7 +57,7 @@ export function useProduct(code: string) {
 
 export function usePrefetchProducts() {
   const queryClient = useQueryClient()
-  return () => {
+  return useCallback(() => {
     queryClient.prefetchQuery({
       queryKey: ['products', 'active'],
       queryFn: async () => {
@@ -91,5 +93,5 @@ export function usePrefetchProducts() {
       },
       staleTime: 5 * 60 * 1000,
     })
-  }
+  }, [queryClient])
 }

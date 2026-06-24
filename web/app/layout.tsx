@@ -2,7 +2,8 @@ import type { Metadata } from 'next'
 import Script from 'next/script'
 import { Geist } from 'next/font/google'
 import { ColorSchemeScript, MantineProvider } from '@mantine/core'
-import { Providers } from './providers'
+import { QueryProvider } from './QueryProvider'
+import PrefetchProducts from '@/components/PrefetchProducts'
 import './globals.css'
 
 const geistSans = Geist({
@@ -17,8 +18,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
+  modal,
 }: {
   children: React.ReactNode
+  modal: React.ReactNode
 }) {
   return (
     <html
@@ -38,7 +41,11 @@ export default function RootLayout({
       </head>
       <body className="min-h-full bg-gray-50 font-sans">
         <MantineProvider defaultColorScheme="light">
-          <Providers>{children}</Providers>
+          <QueryProvider>
+            {children}
+            <PrefetchProducts />
+          </QueryProvider>
+          {modal}
         </MantineProvider>
       </body>
     </html>
