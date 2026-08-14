@@ -36,6 +36,34 @@ ghcr.io/vothanhlam1793/banggia-web
 ghcr.io/vothanhlam1793/banggia-admin
 ```
 
+## Deploy as three separate projects
+
+Use one Compose file per server/project:
+
+```bash
+docker compose --env-file .env -f docker-compose.backend.yml up -d
+docker compose --env-file .env -f docker-compose.web.yml up -d
+docker compose --env-file .env -f docker-compose.admin.yml up -d
+```
+
+The backend project needs `MONGODB_URI`. The web and admin projects need
+`BACKEND_INTERNAL_URL`, for example `http://10.0.0.20:10202` when the backend
+server is reachable over a private network. If they are on separate public
+domains, use the backend HTTPS URL and restrict it with authentication or a
+firewall where possible.
+
+Example per-project variables:
+
+```env
+# backend server
+MONGODB_URI=mongodb://user:password@mongo.internal:27017/banggiasi-v3?authSource=admin
+JWT_SECRET=long-random-secret
+DEFAULT_ADMIN_PASSWORD=long-random-password
+
+# web/admin server
+BACKEND_INTERNAL_URL=http://backend.internal:10202
+```
+
 ## Restore MongoDB
 
 Copy the Mongo archive to the MongoDB host and restore it into the configured

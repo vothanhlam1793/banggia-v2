@@ -1,0 +1,28 @@
+services:
+  backend:
+    image: ${BACKEND_IMAGE:-ghcr.io/vothanhlam1793/banggia-backend}:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      MONGODB_URI: ${MONGODB_URI:?MONGODB_URI is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-admin@example.com}
+      DEFAULT_ADMIN_NAME: ${DEFAULT_ADMIN_NAME:-Admin}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:?DEFAULT_ADMIN_PASSWORD is required}
+      KIOTVIET_CLIENT_ID: ${KIOTVIET_CLIENT_ID:-}
+      KIOTVIET_CLIENT_SECRET: ${KIOTVIET_CLIENT_SECRET:-}
+      KIOTVIET_RETAILER: ${KIOTVIET_RETAILER:-}
+    ports:
+      - "${BACKEND_PORT:-10202}:4000"
+    volumes:
+      - uploads:/app/public/uploads
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  uploads:
