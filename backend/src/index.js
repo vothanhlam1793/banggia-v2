@@ -32,21 +32,27 @@ app.use('/api/v1', restRouter);
 
 const PORT = process.env.PORT || 4000;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/banggiasi-v3';
+const DEFAULT_ADMIN_EMAIL = process.env.DEFAULT_ADMIN_EMAIL || 'admin@example.com';
+const DEFAULT_ADMIN_NAME = process.env.DEFAULT_ADMIN_NAME || 'Admin';
+const DEFAULT_ADMIN_PASSWORD = process.env.DEFAULT_ADMIN_PASSWORD;
 
 try {
   await mongoose.connect(MONGODB_URI);
   console.log('[DB] Connected to MongoDB');
 
-  const existing = await User.findOne({ email: 'admin@example.com' });
+  const existing = await User.findOne({ email: DEFAULT_ADMIN_EMAIL });
   if (!existing) {
+    if (!DEFAULT_ADMIN_PASSWORD) {
+      throw new Error('DEFAULT_ADMIN_PASSWORD is required when the admin user does not exist');
+    }
     await User.create({
-      email: 'admin@example.com',
-      name: 'Admin',
-      password: 'admin123',
+      email: DEFAULT_ADMIN_EMAIL,
+      name: DEFAULT_ADMIN_NAME,
+      password: DEFAULT_ADMIN_PASSWORD,
       isAdmin: true,
       role: 'admin',
     });
-    console.log('[DB] Default admin created: admin@example.com / admin123');
+    console.log(`[DB] Default admin created: ${DEFAULT_ADMIN_EMAIL}`);
   } else if (!existing.role) {
     existing.role = 'admin';
     existing.isAdmin = true;

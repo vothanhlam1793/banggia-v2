@@ -3,9 +3,7 @@ import type { Product, PaginatedResponse } from './types'
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1'
 
 async function fetchApi<T>(path: string, params?: Record<string, string>): Promise<T> {
-  const base = process.env.NODE_ENV === 'production' 
-    ? 'http://localhost:10202'
-    : 'http://localhost:10202'
+  const base = process.env.BACKEND_INTERNAL_URL || 'http://localhost:10202'
   const url = new URL(`${API_URL}${path}`, base)
   if (params) {
     for (const [k, v] of Object.entries(params)) {

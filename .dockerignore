@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+.next
+**/.next
+.git
+.github
+*.log
+**/.env
+**/.env.*
+!**/.env.example
+backend/public/uploads
+umami/pgdata
+.hermes
+workflow
