@@ -41,10 +41,20 @@ ghcr.io/vothanhlam1793/banggia-admin
 Use one Compose file per server/project:
 
 ```bash
-docker compose --env-file .env -f docker-compose.backend.yml up -d
-docker compose --env-file .env -f docker-compose.web.yml up -d
-docker compose --env-file .env -f docker-compose.admin.yml up -d
+docker compose --env-file .env.backend -f docker-compose.backend.yml up -d
+docker compose --env-file .env.web -f docker-compose.web.yml up -d
+docker compose --env-file .env.admin -f docker-compose.admin.yml up -d
 ```
+
+Start from the matching examples:
+
+```bash
+cp .env.backend.example .env.backend
+cp .env.web.example .env.web
+cp .env.admin.example .env.admin
+```
+
+Keep the three resulting `.env.*` files private on their respective servers.
 
 The backend project needs `MONGODB_URI`. The web and admin projects need
 `BACKEND_INTERNAL_URL`, for example `http://10.0.0.20:10202` when the backend

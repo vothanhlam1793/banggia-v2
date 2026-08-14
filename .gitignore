@@ -4,6 +4,9 @@ node_modules/
 .env
 .env.local
 .env.production
+deploy/.env.*
+!deploy/.env.example
+!deploy/.env.*.example
 backend/public/uploads/*
 scripts/
 .DS_Store
