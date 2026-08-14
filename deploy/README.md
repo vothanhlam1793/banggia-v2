@@ -14,7 +14,14 @@ MongoDB is external and is supplied through `MONGODB_URI`.
 The `uploads` named volume is mounted at `/app/public/uploads` in the backend.
 Restore the existing product images into this volume separately from MongoDB.
 
-## Deploy from source
+## Choose a deployment mode
+
+Use **one** of the two modes below. Do not start both modes on the same host,
+because they use the same ports.
+
+## All services on one host
+
+Run these commands from the repository root:
 
 ```bash
 cp deploy/.env.example deploy/.env
@@ -24,9 +31,13 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml ps
 ```
 
-The Compose file builds from the repository root. On a server that pulls images
-from GHCR instead, use the same file after publishing the three images and set
-`IMAGE_TAG` in `deploy/.env`.
+This mode builds from source. To use the published GHCR images instead, log in
+to GHCR, run `pull`, then start with `--no-build`:
+
+```bash
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml pull
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d --no-build
+```
 
 Pushing to `main` runs `.github/workflows/docker-publish.yml`, which publishes:
 
@@ -38,20 +49,31 @@ ghcr.io/vothanhlam1793/banggia-admin
 
 ## Deploy as three separate projects
 
-Use one Compose file per server/project:
+Use one Compose file per server/project. Run these commands from the repository
+root:
 
 ```bash
-docker compose --env-file .env.backend -f docker-compose.backend.yml up -d
-docker compose --env-file .env.web -f docker-compose.web.yml up -d
-docker compose --env-file .env.admin -f docker-compose.admin.yml up -d
+cp deploy/.env.backend.example deploy/.env.backend
+cp deploy/.env.web.example deploy/.env.web
+cp deploy/.env.admin.example deploy/.env.admin
+
+# Edit each env file before starting its service.
+docker compose --env-file deploy/.env.backend -f deploy/docker-compose.backend.yml pull
+docker compose --env-file deploy/.env.backend -f deploy/docker-compose.backend.yml up -d
+
+docker compose --env-file deploy/.env.web -f deploy/docker-compose.web.yml pull
+docker compose --env-file deploy/.env.web -f deploy/docker-compose.web.yml up -d
+
+docker compose --env-file deploy/.env.admin -f deploy/docker-compose.admin.yml pull
+docker compose --env-file deploy/.env.admin -f deploy/docker-compose.admin.yml up -d
 ```
 
-Start from the matching examples:
+The matching example files are:
 
 ```bash
-cp .env.backend.example .env.backend
-cp .env.web.example .env.web
-cp .env.admin.example .env.admin
+deploy/.env.backend.example  # backend + external MongoDB
+deploy/.env.web.example      # public web
+deploy/.env.admin.example    # admin UI
 ```
 
 Keep the three resulting `.env.*` files private on their respective servers.
@@ -61,6 +83,11 @@ The backend project needs `MONGODB_URI`. The web and admin projects need
 server is reachable over a private network. If they are on separate public
 domains, use the backend HTTPS URL and restrict it with authentication or a
 firewall where possible.
+
+The backend, web, and admin containers must be able to reach the addresses in
+their respective env files. A Compose network name such as `backend:4000` only
+works when all services use the same Compose project; use a real private DNS/IP
+for the three-project setup.
 
 Example per-project variables:
 
@@ -88,3 +115,13 @@ mongorestore --gzip --archive=banggiasi-v3-YYYYMMDD-HHMMSS.archive.gz \
 
 Point the existing Nginx or Coolify proxy to the host ports above. The admin
 route must preserve the `/admin` prefix, and `/uploads` must proxy to backend.
+
+Recommended routes:
+
+```text
+/             -> web:10200
+/admin        -> admin:10201
+/api          -> backend:10202
+/uploads      -> backend:10202
+/health       -> backend:10202
+```
