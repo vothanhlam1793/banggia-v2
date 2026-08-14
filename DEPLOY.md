@@ -3,7 +3,7 @@
 ## Kiến trúc
 
 ```
-Internet → banggia.besen.vn (HTTPS)
+Internet → banggia.creta.vn (HTTPS)
               │
     ┌─────────▼──────────┐
     │  SVR12 (nova)       │  160.250.186.95 / 10.7.0.10
@@ -20,7 +20,7 @@ Internet → banggia.besen.vn (HTTPS)
     │  :10200 → Web public │  Next.js 16 + Mantine v9
     │  :10201 → Admin      │  Next.js 16 + Mantine v9
     │  :10202 → Backend    │  Express + REST API
-    │  :27044 → MongoDB    │  Docker mongo:4.0.4
+    │  :27045 → MongoDB    │  Docker mongo:4.0 (volume: banggia-mongo-data)
     └──────────────────────┘
 ```
 
@@ -34,7 +34,7 @@ Internet → banggia.besen.vn (HTTPS)
 | `/admin/*` | `10.7.0.21:10201` | Admin UI |
 | `/*` | `10.7.0.21:10200` | Web public |
 
-Config file: `/etc/nginx/sites-enabled/banggia.besen.vn.conf` trên SVR12.
+Config file: `/etc/nginx/sites-enabled/banggia.creta.vn.conf` trên SVR12.
 
 ## Deploy steps
 
@@ -61,7 +61,7 @@ pm2 restart banggia-backend
 
 # Verify
 curl http://localhost:10202/health
-# → 200 OK
+# → {"status":"ok"}
 ```
 
 ### Deploy admin (sau khi sửa code frontend)
@@ -101,16 +101,19 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:10200
 ### Verify public endpoint
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}" https://banggia.besen.vn
-curl -s -o /dev/null -w "%{http_code}" https://banggia.besen.vn/admin/login
-curl -s https://banggia.besen.vn/api/v1/products/count
+curl -s -o /dev/null -w "%{http_code}" https://banggia.creta.vn
+# → 200
+curl -s -o /dev/null -w "%{http_code}" https://banggia.creta.vn/admin/login
+# → 200
+curl -s https://banggia.creta.vn/api/v1/products/count
+# → {"ok":true,"data":3170}
 ```
 
 ### Thêm route mới vào nginx (trên SVR12)
 
 ```bash
 ssh root@10.7.0.10
-nano /etc/nginx/sites-enabled/banggia.besen.vn.conf
+nano /etc/nginx/sites-enabled/banggia.creta.vn.conf
 # Thêm location block, giữ đúng thứ tự: static routes TRƯỚC catch-all /*
 
 nginx -t && nginx -s reload
@@ -141,13 +144,33 @@ pm2 restart all                   # Restart tất cả
 
 ## MongoDB
 
-```bash
-# Container
-docker ps | grep mongo          # Kiểm tra container
-docker restart ngochoang-mongo-dev  # Restart nếu cần
+Container riêng, độc lập với các dự án khác.
 
-# Connection string: mongodb://black:local-dev-pwd@127.0.0.1:27044/banggiasi-v3?authSource=admin
+```bash
+# Kiểm tra container
+docker ps | grep banggia-mongo
+
+# Restart nếu cần
+docker restart banggia-mongo
+
+# Logs
+docker logs banggia-mongo --tail 20
+
+# Dung lượng
+sudo du -sh /var/lib/docker/volumes/banggia-mongo-data/_data/
 ```
+
+| Thuộc tính | Giá trị |
+|------------|---------|
+| Container | `banggia-mongo` |
+| Image | `mongo:4.0` |
+| Port | `127.0.0.1:27045` |
+| Volume | `banggia-mongo-data` |
+| Connection string | `mongodb://127.0.0.1:27045/banggiasi-v3` |
+| Auth | Không (internal localhost) |
+| Restart policy | `unless-stopped` |
+
+> **Lưu ý:** MongoDB này KHÔNG dùng chung với Ngọc Hoàng. Ngọc Hoàng có container riêng `ngochoang-mongo-dev` (port 27044, volume `ngochoang-v2_mongo-data`).
 
 ## Troubleshooting
 
@@ -158,7 +181,9 @@ docker restart ngochoang-mongo-dev  # Restart nếu cần
 | Web trống (0 sp) | Vào `/admin/activate` — sp đã ACTIVE chưa? |
 | Admin 404 page mới | Đã `rm -rf .next && npm run build` chưa? |
 | Backend 500 | `pm2 logs banggia-backend --lines 20` |
-| MongoDB auth fail | `docker restart ngochoang-mongo-dev` |
+| Backend crash loop | `docker ps \| grep banggia-mongo` — MongoDB có chạy? |
+| Backend crash loop | `curl http://localhost:10202/health` — check kết nối DB |
+| MongoDB không lên | `docker logs banggia-mongo --tail 30` — xem lỗi |
 | SSL hết hạn | `ssh root@10.7.0.10 "certbot renew"` |
 
 ## Các file quan trọng
@@ -167,9 +192,11 @@ docker restart ngochoang-mongo-dev  # Restart nếu cần
 |------|----------|
 | `~/banggia/ecosystem.config.cjs` | PM2 config 3 service |
 | `~/banggia/backend/.env` | MongoDB URI + KiotViet keys |
+| `~/banggia/DEPLOY.md` | Tài liệu này |
 | `~/.hermes/skills/productivity/banggia/SKILL.md` | Skill đầy đủ |
-| `/etc/nginx/sites-enabled/banggia.besen.vn.conf` | Nginx config (trên SVR12) |
+| `/etc/nginx/sites-enabled/banggia.creta.vn.conf` | Nginx config (trên SVR12) |
 
 ---
 
+*Cập nhật: 2026-07-15 — tách MongoDB độc lập, container `banggia-mongo` (mongo:4.0, port 27045)*
 *Viết: 2026-06-22 — từ khảo sát thực tế toàn bộ pipeline*
