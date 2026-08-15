@@ -1,0 +1,63 @@
+name: banggia-image-test
+
+# Runs published images beside the PM2 deployment without changing its ports or data.
+services:
+  backend:
+    image: ghcr.io/vothanhlam1793/banggia-backend:latest
+    network_mode: host
+    env_file:
+      - ../backend/.env
+    environment:
+      NODE_ENV: production
+      PORT: 11202
+    volumes:
+      - ../backend/public/uploads:/app/public/uploads
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:11202/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  web:
+    image: ghcr.io/vothanhlam1793/banggia-web:latest
+    network_mode: host
+    env_file:
+      - ../web/.env.local
+      - ../web/.env.production
+    environment:
+      NODE_ENV: production
+      PORT: 11210
+      HOSTNAME: 0.0.0.0
+      BACKEND_INTERNAL_URL: http://127.0.0.1:11202
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  admin:
+    image: ghcr.io/vothanhlam1793/banggia-admin:latest
+    network_mode: host
+    env_file:
+      - ../admin/.env.local
+      - ../admin/.env.production
+    environment:
+      NODE_ENV: production
+      PORT: 11211
+      HOSTNAME: 0.0.0.0
+      BACKEND_INTERNAL_URL: http://127.0.0.1:11202
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  proxy:
+    image: nginx:1.27-alpine
+    network_mode: host
+    volumes:
+      - ./nginx.image-test.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      web:
+        condition: service_started
+      admin:
+        condition: service_started
