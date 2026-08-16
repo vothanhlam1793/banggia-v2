@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Image, Stack, Group, Card } from '@mantine/core'
 import { IconPackage } from '@tabler/icons-react'
+import { resolveImageUrl } from '@/lib/utils'
 
 export default function ProductGallery({
   images,
@@ -31,7 +32,7 @@ export default function ProductGallery({
     <Stack gap="xs" className={className}>
       <Card withBorder padding={0} style={{ overflow: 'hidden' }}>
         <Image
-          src={images[activeIdx]}
+          src={resolveImageUrl(images[activeIdx])}
           alt={name}
           h={height}
           fit="contain"
@@ -43,7 +44,7 @@ export default function ProductGallery({
           {images.map((url, idx) => (
             <Image
               key={idx}
-              src={url}
+              src={resolveImageUrl(url)}
               alt={`${name} ${idx + 1}`}
               w={56}
               h={56}

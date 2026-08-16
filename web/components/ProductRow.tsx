@@ -3,7 +3,7 @@
 import { memo } from 'react'
 import { Table, Text, Group, Badge, Image } from '@mantine/core'
 import { IconPackage } from '@tabler/icons-react'
-import { displayPrice } from '@/lib/utils'
+import { displayPrice, resolveImageUrl } from '@/lib/utils'
 import type { Product } from '@/lib/types'
 
 const ProductRow = memo(function ProductRow({ p, onClick }: { p: Product; onClick: (p: Product) => void }) {
@@ -13,7 +13,7 @@ const ProductRow = memo(function ProductRow({ p, onClick }: { p: Product; onClic
       <Table.Td>
         {p.imageUrl ? (
           <Image
-            src={p.imageUrl}
+            src={resolveImageUrl(p.imageUrl)}
             alt={p.name || ''}
             w={48}
             h={48}
