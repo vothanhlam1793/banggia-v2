@@ -1,7 +1,7 @@
 services:
   web:
     build:
-      context: ..
+      context: .
       dockerfile: web/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: /api/v1
