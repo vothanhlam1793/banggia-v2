@@ -1,17 +1,18 @@
 import type { Product, PaginatedResponse } from './types'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1'
-
 async function fetchApi<T>(path: string, params?: Record<string, string>): Promise<T> {
   const base = process.env.BACKEND_INTERNAL_URL || 'http://localhost:10202'
-  const url = new URL(`${API_URL}${path}`, base)
+  const url = new URL(`/api/v1${path}`, base)
   if (params) {
     for (const [k, v] of Object.entries(params)) {
       if (v) url.searchParams.set(k, v)
     }
   }
   const res = await fetch(url.toString())
-  if (!res.ok) throw new Error('Lỗi tải dữ liệu')
+  if (!res.ok) {
+    console.error(`[API] ${res.status} ${url}`)
+    throw new Error('Lỗi tải dữ liệu')
+  }
   return res.json()
 }
 
