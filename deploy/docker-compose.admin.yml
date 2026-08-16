@@ -1,11 +1,17 @@
 services:
   admin:
-    image: ${ADMIN_IMAGE:-ghcr.io/vothanhlam1793/banggia-admin}:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: admin/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
+        BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:?BACKEND_INTERNAL_URL is required}
     restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
       BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:?BACKEND_INTERNAL_URL is required}
     ports:
       - "${ADMIN_PORT:-10201}:3000"
