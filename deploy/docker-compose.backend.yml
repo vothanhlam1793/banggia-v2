@@ -1,6 +1,8 @@
 services:
   backend:
-    image: ${BACKEND_IMAGE:-ghcr.io/vothanhlam1793/banggia-backend}:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     environment:
       NODE_ENV: production
