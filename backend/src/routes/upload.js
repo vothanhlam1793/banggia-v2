@@ -5,6 +5,8 @@ import https from 'https';
 import { Client } from 'minio';
 
 const BUCKET = process.env.MINIO_BUCKET || 'product-images';
+const PRODUCT_IMAGE_PREFIX = (process.env.MINIO_PRODUCT_IMAGE_PREFIX || 'uploads/products')
+  .replace(/^\/+|\/+$/g, '');
 let client;
 let bucketReady;
 
@@ -70,7 +72,8 @@ router.post('/', upload.single('image'), async (req, res) => {
     await ensureBucket();
     const filename = Date.now() + '-' + Math.round(Math.random() * 1E9)
       + path.extname(req.file.originalname).toLowerCase();
-    await getClient().putObject(BUCKET, filename, req.file.buffer, req.file.size, {
+    const objectName = `${PRODUCT_IMAGE_PREFIX}/${filename}`;
+    await getClient().putObject(BUCKET, objectName, req.file.buffer, req.file.size, {
       'Content-Type': req.file.mimetype,
     });
     const url = '/uploads/products/' + filename;
@@ -86,8 +89,24 @@ export const productImagesRouter = Router();
 productImagesRouter.get('/:filename', async (req, res, next) => {
   try {
     const minio = getClient();
-    const stat = await minio.statObject(BUCKET, req.params.filename);
-    const stream = await minio.getObject(BUCKET, req.params.filename);
+    const objectNames = [
+      `${PRODUCT_IMAGE_PREFIX}/${req.params.filename}`,
+      `uploads/products/${req.params.filename}`,
+      req.params.filename,
+    ].filter((value, index, values) => values.indexOf(value) === index);
+    let objectName;
+    let stat;
+    for (const candidate of objectNames) {
+      try {
+        stat = await minio.statObject(BUCKET, candidate);
+        objectName = candidate;
+        break;
+      } catch (e) {
+        if (e.code !== 'NoSuchKey' && e.code !== 'NotFound') throw e;
+      }
+    }
+    if (!objectName) return next();
+    const stream = await minio.getObject(BUCKET, objectName);
     res.setHeader('Content-Type', stat.metaData?.['content-type'] || 'application/octet-stream');
     res.setHeader('Content-Length', stat.size);
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');

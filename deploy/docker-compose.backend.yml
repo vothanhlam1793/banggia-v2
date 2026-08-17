@@ -22,6 +22,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
       MINIO_BUCKET: ${MINIO_BUCKET:-product-images}
+      MINIO_PRODUCT_IMAGE_PREFIX: ${MINIO_PRODUCT_IMAGE_PREFIX:-uploads/products}
     ports:
       - "${BACKEND_PORT:-10202}:4000"
     volumes:
