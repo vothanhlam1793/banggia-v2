@@ -5,6 +5,7 @@ services:
       dockerfile: admin/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
+        NEXT_PUBLIC_IMAGE_URL: ${NEXT_PUBLIC_IMAGE_URL:?NEXT_PUBLIC_IMAGE_URL is required}
         BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:?BACKEND_INTERNAL_URL is required}
     restart: unless-stopped
     environment:
@@ -12,6 +13,7 @@ services:
       PORT: 3000
       HOSTNAME: 0.0.0.0
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
+      NEXT_PUBLIC_IMAGE_URL: ${NEXT_PUBLIC_IMAGE_URL:?NEXT_PUBLIC_IMAGE_URL is required}
       BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:?BACKEND_INTERNAL_URL is required}
     ports:
       - "${ADMIN_PORT:-10201}:3000"

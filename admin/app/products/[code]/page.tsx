@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import AdminLayout from '@/components/AdminLayout';
 import { apiRequest } from '@/lib/auth';
+import { resolveImageUrl } from '@/lib/utils';
 import { notifications } from '@mantine/notifications';
 import {
   Title,
@@ -566,7 +567,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ code: 
                         {(product.images || []).map((url: string, idx: number) => (
                           <div key={idx} style={{ position: 'relative', display: 'inline-block' }}>
                             <Image
-                              src={url}
+                              src={resolveImageUrl(url)}
                               alt={`${product.name} ${idx + 1}`}
                               w={80}
                               h={80}

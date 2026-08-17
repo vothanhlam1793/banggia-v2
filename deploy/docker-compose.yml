@@ -68,12 +68,14 @@ services:
       dockerfile: admin/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: /api/v1
+        NEXT_PUBLIC_IMAGE_URL: ${NEXT_PUBLIC_IMAGE_URL:-}
         BACKEND_INTERNAL_URL: http://backend:4000
     restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_IMAGE_URL: ${NEXT_PUBLIC_IMAGE_URL:-}
       BACKEND_INTERNAL_URL: http://backend:4000
     depends_on:
       backend:
@@ -81,7 +83,7 @@ services:
     ports:
       - "${ADMIN_PORT:-10201}:3000"
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/admin/login').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 30s
       timeout: 5s
       retries: 3

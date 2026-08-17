@@ -5,6 +5,7 @@ import {
   Modal, Image, Card, Text, Group, Badge, Stack, SimpleGrid, Anchor,
 } from '@mantine/core';
 import { IconPackage, IconArrowRight } from '@tabler/icons-react';
+import { resolveImageUrl } from '@/lib/utils';
 
 const PRICE_LABELS: Record<string, string> = {
   L0: 'L0', L1: 'L1', L2: 'L2', L3: 'L3', L4: 'L4',
@@ -82,7 +83,7 @@ export default function ProductQuickModal({ product, opened, onClose }: Props) {
             {allImages.length > 0 ? (
               <>
                 <Image
-                  src={allImages[0]}
+                  src={resolveImageUrl(allImages[0])}
                   alt={product.name}
                   h={200}
                   fit="contain"
@@ -94,7 +95,7 @@ export default function ProductQuickModal({ product, opened, onClose }: Props) {
                     {allImages.map((url: string, idx: number) => (
                       <Image
                         key={idx}
-                        src={url}
+                        src={resolveImageUrl(url)}
                         alt={`${product.name} ${idx + 1}`}
                         w={48}
                         h={48}
