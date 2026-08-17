@@ -79,7 +79,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ code: 
       const fd = new FormData();
       fd.append('image', file);
       const token = localStorage.getItem('token');
-      const res = await (fetch as any)(`/api/v1/upload`, {
+      const res = await window.fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/upload`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: fd,
@@ -116,7 +116,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ code: 
     addImageUrl(url);
   }
 
-  async function fetch() {
+  async function fetchData() {
     setLoading(true);
     setError('');
     try {
@@ -142,7 +142,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ code: 
     setLoading(false);
   }
 
-  useEffect(() => { fetch(); }, [code]);
+  useEffect(() => { fetchData(); }, [code]);
 
   async function updatePrices() {
     setMsg('');
@@ -157,7 +157,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ code: 
       notifications.show({ message: 'Cập nhật giá thành công', color: 'green' });
       setNotes('');
       setMsg('');
-      fetch();
+      fetchData();
     } catch (e: any) { setMsg(e.message); }
   }
 
@@ -168,7 +168,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ code: 
       if (field !== 'isPublic') notifications.show({ message: 'Đã lưu', color: 'green' });
     } catch (e: any) {
       notifications.show({ message: e.message || 'Lỗi lưu', color: 'red' });
-      fetch();
+      fetchData();
     }
   }
 
@@ -215,7 +215,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ code: 
       });
       notifications.show({ message: 'Đã thêm campaign', color: 'green' });
       setStratModal(false);
-      fetch();
+      fetchData();
     } catch {
       notifications.show({ message: 'Lỗi thêm campaign', color: 'red' });
     }
@@ -226,7 +226,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ code: 
     try {
       await apiRequest('DELETE', `/products/${code}/campaigns/${campaignId}`);
       notifications.show({ message: 'Đã xóa campaign', color: 'green' });
-      fetch();
+      fetchData();
     } catch {
       notifications.show({ message: 'Lỗi xóa campaign', color: 'red' });
     }
