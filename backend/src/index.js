@@ -8,6 +8,7 @@ import cors from 'cors';
 import { authMiddleware } from './middleware/auth.js';
 import restRouter from './routes/index.js';
 import importRouter from './routes/import.js';
+import { productImagesRouter } from './routes/upload.js';
 import User from './models/User.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -25,6 +26,7 @@ app.get('/api/v1/api-docs', (_, res) => res.render('api-docs'));
 
 app.use('/import', importRouter);
 
+app.use('/uploads/products', productImagesRouter);
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 app.use(express.static(path.join(__dirname, '../public')));
 

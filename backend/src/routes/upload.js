@@ -1,22 +1,54 @@
 import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import https from 'https';
+import { Client } from 'minio';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOAD_DIR = path.join(__dirname, '../../public/uploads/products');
+const BUCKET = process.env.MINIO_BUCKET || 'product-images';
+let client;
+let bucketReady;
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const name = Date.now() + '-' + Math.round(Math.random() * 1E9) + ext;
-    cb(null, name);
-  },
-});
+function getClient() {
+  if (client) return client;
+
+  const endPoint = process.env.MINIO_ENDPOINT;
+  const accessKey = process.env.MINIO_ACCESS_KEY;
+  const secretKey = process.env.MINIO_SECRET_KEY;
+  if (!endPoint || !accessKey || !secretKey) {
+    throw new Error('MinIO configuration is incomplete');
+  }
+
+  const useSSL = process.env.MINIO_USE_SSL === 'true';
+  client = new Client({
+    endPoint,
+    port: Number(process.env.MINIO_PORT || 9000),
+    useSSL,
+    accessKey,
+    secretKey,
+    transportAgent: useSSL && process.env.MINIO_REJECT_UNAUTHORIZED === 'false'
+      ? new https.Agent({ rejectUnauthorized: false })
+      : undefined,
+  });
+  return client;
+}
+
+async function ensureBucket() {
+  if (!bucketReady) {
+    const minio = getClient();
+    bucketReady = minio.bucketExists(BUCKET).then((exists) => (
+      exists ? undefined : minio.makeBucket(BUCKET)
+    ));
+  }
+  try {
+    return await bucketReady;
+  } catch (e) {
+    bucketReady = undefined;
+    throw e;
+  }
+}
 
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = /jpeg|jpg|png|gif|webp|svg/;
@@ -29,12 +61,48 @@ const upload = multer({
 
 const router = Router();
 
-router.post('/', upload.single('image'), (req, res) => {
+router.post('/', upload.single('image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ ok: false, error: 'Vui lòng chọn file ảnh' });
   }
-  const url = '/uploads/products/' + req.file.filename;
-  res.json({ ok: true, data: { url, filename: req.file.filename } });
+
+  try {
+    await ensureBucket();
+    const filename = Date.now() + '-' + Math.round(Math.random() * 1E9)
+      + path.extname(req.file.originalname).toLowerCase();
+    await getClient().putObject(BUCKET, filename, req.file.buffer, req.file.size, {
+      'Content-Type': req.file.mimetype,
+    });
+    const url = '/uploads/products/' + filename;
+    res.json({ ok: true, data: { url, filename } });
+  } catch (e) {
+    console.error('[MinIO] Upload failed:', e);
+    res.status(500).json({ ok: false, error: 'Không thể lưu ảnh' });
+  }
+});
+
+export const productImagesRouter = Router();
+
+productImagesRouter.get('/:filename', async (req, res, next) => {
+  try {
+    const minio = getClient();
+    const stat = await minio.statObject(BUCKET, req.params.filename);
+    const stream = await minio.getObject(BUCKET, req.params.filename);
+    res.setHeader('Content-Type', stat.metaData?.['content-type'] || 'application/octet-stream');
+    res.setHeader('Content-Length', stat.size);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    stream.on('error', next);
+    stream.pipe(res);
+  } catch (e) {
+    if (
+      e.code === 'NoSuchKey'
+      || e.code === 'NoSuchBucket'
+      || e.code === 'NotFound'
+      || e.message === 'MinIO configuration is incomplete'
+    ) return next();
+    console.error('[MinIO] Read failed:', e);
+    return res.status(500).end();
+  }
 });
 
 export default router;
