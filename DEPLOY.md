@@ -1,6 +1,8 @@
 # BangGia v3 — Deploy Guide
 
-## Kiến trúc
+> **CURRENT PRODUCTION (verified 2026-08-27):** Production has moved to `160.250.187.162` and is split by hostname: public `https://banggia.creta.vn`, admin `https://admin.creta.vn/login`, API `https://api.creta.vn`. Admin authenticates against `api.creta.vn` and stores JWT under localStorage key `banggiasi_token`. Credentials are in `/home/leco/.hermes/credentials/banggia-production.env` (mode 600). The architecture below is the **legacy/fallback deployment**, not current production. Do not reroute to it without Lâm's explicit approval. See the Hermes skill reference `banggia/references/current-production-deploy.md`.
+
+## Legacy architecture (not current production)
 
 ```
 Internet → banggia.creta.vn (HTTPS)

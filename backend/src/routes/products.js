@@ -13,6 +13,12 @@ const DEFAULT_STALE = {
   'PHỤ KIỆN': 30,
 };
 
+function normalizeImageUrl(value) {
+  return typeof value === 'string'
+    ? value.replace(/^http:\/\/(?:localhost|127\.0\.0\.1):10202(?=\/uploads\/)/, '')
+    : value;
+}
+
 function buildFilter({ search, brand, group, status, isPublic, tag } = {}) {
   const filter = {};
   if (brand) filter.brand = brand;
@@ -261,7 +267,11 @@ router.patch('/:code', requireEditor, async (req, res) => {
     const allowed = ['name', 'brand', 'group', 'status', 'isPublic', 'tags', 'description', 'category', 'imageUrl', 'images', 'priceStaleDays', 'specs', 'specs_updated_at', 'isStrategic', 'campaigns', 'strategicPriority'];
     for (const field of allowed) {
       if (req.body[field] !== undefined) {
-        product[field] = req.body[field];
+        product[field] = field === 'imageUrl'
+          ? normalizeImageUrl(req.body[field])
+          : field === 'images' && Array.isArray(req.body[field])
+            ? req.body[field].map(normalizeImageUrl)
+            : req.body[field];
       }
     }
 
